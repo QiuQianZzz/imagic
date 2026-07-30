@@ -108,10 +108,10 @@ class AppTheme {
       titleSmall: TextStyle(fontFamily: f, fontWeight: FontWeight.w500, fontSize: 14, height: 1.43),
       bodyLarge: TextStyle(fontFamily: f, fontWeight: FontWeight.w400, fontSize: 16, height: 1.50),
       bodyMedium: TextStyle(fontFamily: f, fontWeight: FontWeight.w400, fontSize: 14, height: 1.43),
-      bodySmall: TextStyle(fontFamily: f, fontWeight: FontWeight.w400, fontSize: 12, height: 1.33),
+      bodySmall: TextStyle(fontFamily: f, fontWeight: FontWeight.w500, fontSize: 12, height: 1.33),
       labelLarge: TextStyle(fontFamily: f, fontWeight: FontWeight.w500, fontSize: 14, height: 1.43),
       labelMedium: TextStyle(fontFamily: f, fontWeight: FontWeight.w500, fontSize: 12, height: 1.33),
-      labelSmall: TextStyle(fontFamily: f, fontWeight: FontWeight.w500, fontSize: 11, height: 1.45),
+      labelSmall: TextStyle(fontFamily: f, fontWeight: FontWeight.w500, fontSize: 12, height: 1.33),
     );
   }
 }

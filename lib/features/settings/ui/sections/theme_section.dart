@@ -506,7 +506,6 @@ class _PaletteCard extends StatelessWidget {
           const SizedBox(width: 6),
           Expanded(
             child: Text(name, style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              fontSize: 10,
               color: cs.onSurfaceVariant,
             ), maxLines: 1, overflow: TextOverflow.ellipsis),
           ),

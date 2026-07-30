@@ -34,19 +34,19 @@ class ZoomIndicator extends StatelessWidget {
             _sep(context),
             Text(
               _formatSize(state.fileSize),
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(color: cs.onSurfaceVariant),
             ),
             if (state.imageWidth > 0 && state.imageHeight > 0) ...[
               _sep(context),
               Text(
                 '${state.imageWidth}x${state.imageHeight}',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(color: cs.onSurfaceVariant),
               ),
             ],
             _sep(context),
             Text(
               _formatExt(state.currentPath),
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(color: cs.onSurfaceVariant),
             ),
           ],
           const Spacer(),
@@ -108,7 +108,7 @@ class _ZoomValue extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               '${(scale * 100).clamp(0, 999999).toStringAsFixed(0)}%',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
                 color: cs.onSurfaceVariant,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
