@@ -172,8 +172,9 @@ class SettingsState extends ChangeNotifier {
   }
 
   bool isShortcutCustom(String actionId) {
-    final custom = _service.shortcutBindings[actionId];
-    return custom != null;
+    final binding = getShortcutBinding(actionId);
+    final def = shortcutActions.firstWhere((a) => a.id == actionId);
+    return binding.keyId != def.defaultKey.keyId || binding.modifiers != def.defaultModifiers;
   }
 
   List<String> findConflicts(String actionId, ShortcutBinding binding) {
