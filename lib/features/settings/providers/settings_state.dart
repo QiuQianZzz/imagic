@@ -115,7 +115,13 @@ class SettingsState extends ChangeNotifier {
   }
 
   Future<void> setShortcutBinding(String actionId, LogicalKeyboardKey key) async {
-    _service.shortcutBindings[actionId] = key.keyId;
+    final defaultAction = shortcutActions.firstWhere((a) => a.id == actionId);
+    if (key == defaultAction.defaultKey) {
+      // 如果绑定的是默认值，则移除自定义记录
+      _service.shortcutBindings.remove(actionId);
+    } else {
+      _service.shortcutBindings[actionId] = key.keyId;
+    }
     await _service.save();
     _invalidateShortcutCache();
     notifyListeners();
@@ -129,7 +135,9 @@ class SettingsState extends ChangeNotifier {
   }
 
   bool isShortcutCustom(String actionId) {
-    return _service.shortcutBindings.containsKey(actionId);
+    final defaultAction = shortcutActions.firstWhere((a) => a.id == actionId);
+    final currentKey = getShortcutKey(actionId);
+    return currentKey != defaultAction.defaultKey;
   }
 
   List<String> findConflicts(String actionId, LogicalKeyboardKey key) {
