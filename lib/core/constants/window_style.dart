@@ -1,0 +1,1 @@
+enum WindowStyle { windows, macos }

@@ -9,20 +9,22 @@
 # packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  errors:
+    # Dart 3.0+ 中「非空 case 末尾隐含 break」，语义已安全；
+    # 但仍将「case 非正常完成」设为 error 作为防御，防止遗漏（如 body 中
+    # 有 if/else 分支导致部分路径正常退出而被 analyzer 判定 fallthrough）。
+    switch_case_completes_normally: error
+
 linter:
-  # The lint rules applied to this project can be customized in the
-  # section below to disable rules from the `package:flutter_lints/flutter.yaml`
-  # included above or to enable additional rules. A list of all available lints
-  # and their documentation is published at https://dart.dev/lints.
-  #
-  # Instead of disabling a lint rule for the entire project in the
-  # section below, it can also be suppressed for a single line of code
-  # or a specific dart file by using the `// ignore: name_of_lint` and
-  # `// ignore_for_file: name_of_lint` syntax on the line or in the file
-  # producing the lint.
   rules:
     # avoid_print: false  # Uncomment to disable the `avoid_print` rule
     # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
+    # — Dart 3.0+: 非空 switch case 末尾的 break 是冗余的（Dart 3 默认不 fall-through）。
+    #   如果你想保持「每个非空 case 都显式写 break」的习惯（对从 C/Java/JS 转来的
+    #   开发者更直观），保持下面这行注释掉；如果你想遵循 Dart 3 简洁风格，去掉
+    #   break 并取消下面这行注释，让 analyzer 提示哪些 break 是多余的。
+    # unnecessary_breaks: true
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options
