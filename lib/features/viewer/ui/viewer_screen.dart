@@ -154,6 +154,7 @@ class _ViewerScreenState extends State<ViewerScreen>
   final FocusNode _focusNode = FocusNode();
   late final AnimationController _zoomAnimController;
   late final _AnimatedTransformationController _transformController;
+  bool _isActualSizeMode = false;
 
   @override
   void initState() {
@@ -205,18 +206,25 @@ class _ViewerScreenState extends State<ViewerScreen>
     onWindowUnmaximized();
   }
 
+  @override
+  void onWindowResize() {
+  }
+
   Future<void> _goPrev(ViewerState state) async {
     if (!state.canGoPrev) return;
+    _clearActualSizeMode();
     await state.previousFile();
   }
 
   Future<void> _goNext(ViewerState state) async {
     if (!state.canGoNext) return;
+    _clearActualSizeMode();
     await state.nextFile();
   }
 
   Future<void> _openFromPath(String path) async {
     if (!mounted) return;
+    _clearActualSizeMode();
     await context.read<ViewerState>().openFile(path);
   }
 
@@ -234,7 +242,10 @@ class _ViewerScreenState extends State<ViewerScreen>
       onOpenFile: _openFile,
       onDropFile: _openFromPath,
       transformController: _transformController,
-      onReset: () => _transformController.animateTo(Matrix4.identity()),
+      onReset: () {
+        _clearActualSizeMode();
+        _transformController.animateTo(Matrix4.identity());
+      },
       hasPrev: state.canGoPrev,
       hasNext: state.canGoNext,
       onPrev: () => _goPrev(state),
@@ -362,6 +373,8 @@ class _ViewerScreenState extends State<ViewerScreen>
       case MenuAction.saveAs:
         break;
       case MenuAction.closeFile:
+        _clearActualSizeMode();
+        _transformController.value = Matrix4.identity();
         state.closeImage();
         break;
       case MenuAction.exit:
@@ -372,7 +385,10 @@ class _ViewerScreenState extends State<ViewerScreen>
       case MenuAction.copy:
         break;
       case MenuAction.actualSize:
+        _actualSize();
+        break;
       case MenuAction.fitToWindow:
+        _clearActualSizeMode();
         _transformController.animateTo(Matrix4.identity());
         break;
       case MenuAction.zoomIn:
@@ -401,8 +417,42 @@ class _ViewerScreenState extends State<ViewerScreen>
     }
   }
 
-  /// 以当前缩放值为基准乘以 factor，播放缩放到 target 的动画。
+  void _clearActualSizeMode() {
+    _isActualSizeMode = false;
+  }
+
+  /// 将缩放设为 100%（1 像素 = 1 屏幕像素）。
+  void _actualSize() {
+    _isActualSizeMode = true;
+    final state = context.read<ViewerState>();
+    if (!state.hasImage || state.imageWidth <= 0 || state.imageHeight <= 0) return;
+
+    final renderBox = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null || !renderBox.hasSize) return;
+
+    final viewportW = renderBox.size.width;
+    final viewportH = renderBox.size.height;
+    final imageW = state.imageWidth.toDouble();
+    final imageH = state.imageHeight.toDouble();
+    final viewportAspect = viewportW / viewportH;
+    final imageAspect = imageW / imageH;
+
+    final renderedW = imageAspect > viewportAspect
+        ? viewportW
+        : viewportH * imageAspect;
+
+    final scale = (imageW / renderedW).clamp(
+      AppConstants.kMinZoom,
+      AppConstants.kMaxZoom,
+    );
+    final current = _transformController.value;
+    if ((scale - current.getMaxScaleOnAxis()).abs() < 0.001) return;
+    final target = _transformController._withCenterFocal(current, scale);
+    _transformController.animateTo(target);
+  }
+
   void _zoom(double factor) {
+    _clearActualSizeMode();
     final current = _transformController.value;
     final s = (current.getMaxScaleOnAxis() * factor).clamp(
       AppConstants.kMinZoom,
