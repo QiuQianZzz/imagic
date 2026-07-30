@@ -17,7 +17,7 @@ class ShortcutsSection extends StatelessWidget {
       title: '快捷键',
       children: [
         Text(
-          '点击按键可重新绑定，按 Esc 取消。',
+          '点击按键可重新绑定（支持 Ctrl/Alt/Shift 组合键），按 Esc 取消。',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -48,9 +48,9 @@ class _ShortcutItemState extends State<_ShortcutItem> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final state = context.watch<SettingsState>();
-    final key = state.getShortcutKey(widget.action.id);
+    final binding = state.getShortcutBinding(widget.action.id);
     final isCustom = state.isShortcutCustom(widget.action.id);
-    final conflicts = state.findConflicts(widget.action.id, key);
+    final conflicts = state.findConflicts(widget.action.id, binding);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -93,7 +93,7 @@ class _ShortcutItemState extends State<_ShortcutItem> {
                     onTap: () => state.resetShortcutBinding(widget.action.id),
                   ),
                 _KeyCap(
-                  label: keyToLabel(key),
+                  label: bindingToLabel(binding),
                   isCustom: isCustom,
                   hovered: _hovered,
                   onTap: () => _startRebind(context, widget.action),
@@ -195,7 +195,7 @@ class _KeyCapState extends State<_KeyCap> {
         boxShadow: shadow,
       ),
       child: Material(
-        color: Colors.transparent, // 关键：透明背景
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -225,6 +225,7 @@ class _KeyCapState extends State<_KeyCap> {
     );
   }
 }
+
 class _RebindDialog extends StatefulWidget {
   final ShortcutAction action;
 
@@ -237,6 +238,8 @@ class _RebindDialog extends StatefulWidget {
 class _RebindDialogState extends State<_RebindDialog> {
   final FocusNode _focusNode = FocusNode();
   LogicalKeyboardKey? _capturedKey;
+  int _capturedMods = 0;
+  int _pressedMods = 0;
 
   @override
   void initState() {
@@ -261,27 +264,39 @@ class _RebindDialogState extends State<_RebindDialog> {
         focusNode: _focusNode,
         autofocus: true,
         onKeyEvent: (node, event) {
-          if (event is KeyDownEvent) {
-            if (event.logicalKey == LogicalKeyboardKey.escape) {
-              Navigator.of(context).pop();
-              return KeyEventResult.handled;
-            }
-            if (event.logicalKey != LogicalKeyboardKey.shiftLeft &&
-                event.logicalKey != LogicalKeyboardKey.shiftRight &&
-                event.logicalKey != LogicalKeyboardKey.controlLeft &&
-                event.logicalKey != LogicalKeyboardKey.controlRight &&
-                event.logicalKey != LogicalKeyboardKey.altLeft &&
-                event.logicalKey != LogicalKeyboardKey.altRight &&
-                event.logicalKey != LogicalKeyboardKey.metaLeft &&
-                event.logicalKey != LogicalKeyboardKey.metaRight) {
-              setState(() => _capturedKey = event.logicalKey);
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                _onKeySelected(context, event.logicalKey);
-              });
-              return KeyEventResult.handled;
-            }
+          if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+            Navigator.of(context).pop();
+            return KeyEventResult.handled;
           }
-          return KeyEventResult.ignored;
+          if (_isModifierKey(event.logicalKey)) {
+            final kb = HardwareKeyboard.instance;
+            var mods = 0;
+            if (kb.isControlPressed) mods |= 1 << ShortcutModifier.ctrl.index;
+            if (kb.isAltPressed) mods |= 1 << ShortcutModifier.alt.index;
+            if (kb.isShiftPressed) mods |= 1 << ShortcutModifier.shift.index;
+            if (kb.isMetaPressed) mods |= 1 << ShortcutModifier.meta.index;
+            if (mods != _pressedMods) {
+              setState(() => _pressedMods = mods);
+            }
+            return KeyEventResult.ignored;
+          }
+          if (event is KeyUpEvent) return KeyEventResult.ignored;
+          final key = event.logicalKey;
+          final kb = HardwareKeyboard.instance;
+          var mods = 0;
+          if (kb.isControlPressed) mods |= 1 << ShortcutModifier.ctrl.index;
+          if (kb.isAltPressed) mods |= 1 << ShortcutModifier.alt.index;
+          if (kb.isShiftPressed) mods |= 1 << ShortcutModifier.shift.index;
+          if (kb.isMetaPressed) mods |= 1 << ShortcutModifier.meta.index;
+          final binding = ShortcutBinding(keyId: key.keyId, modifiers: mods);
+          setState(() {
+            _capturedKey ??= key;
+            _capturedMods = mods;
+          });
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _onBindingSelected(context, binding);
+          });
+          return KeyEventResult.handled;
         },
         child: Container(
           width: 300,
@@ -293,54 +308,35 @@ class _RebindDialogState extends State<_RebindDialog> {
           ),
           child: Center(
             child: _capturedKey != null
-                ? Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _KeyCap(
-                        label: keyToLabel(_capturedKey!),
-                        hovered: false,
-                        onTap: () {},
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        '按 Esc 或点击外部取消',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
+                ? _CapturedDisplay(
+                    capturedKey: _capturedKey!,
+                    modifiers: _capturedMods,
                   )
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.keyboard, size: 32, color: cs.primary),
-                      const SizedBox(height: 8),
-                      Text(
-                        '按下新快捷键...',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '按 Esc 或点击外部取消',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
+                : _pressedMods != 0
+                    ? _ModifierHintDisplay(mods: _pressedMods)
+                    : _WaitingDisplay(cs: cs),
           ),
         ),
       ),
     );
   }
 
-  void _onKeySelected(BuildContext context, LogicalKeyboardKey key) {
+  bool _isModifierKey(LogicalKeyboardKey key) {
+    return key == LogicalKeyboardKey.shiftLeft ||
+        key == LogicalKeyboardKey.shiftRight ||
+        key == LogicalKeyboardKey.controlLeft ||
+        key == LogicalKeyboardKey.controlRight ||
+        key == LogicalKeyboardKey.altLeft ||
+        key == LogicalKeyboardKey.altRight ||
+        key == LogicalKeyboardKey.metaLeft ||
+        key == LogicalKeyboardKey.metaRight;
+  }
+
+  void _onBindingSelected(BuildContext context, ShortcutBinding binding) {
     final state = context.read<SettingsState>();
-    final conflicts = state.findConflicts(widget.action.id, key);
+    final conflicts = state.findConflicts(widget.action.id, binding);
     if (conflicts.isEmpty) {
-      state.setShortcutBinding(widget.action.id, key);
+      state.setShortcutBinding(widget.action.id, binding);
       Navigator.of(context).pop();
       return;
     }
@@ -367,7 +363,7 @@ class _RebindDialogState extends State<_RebindDialog> {
           ),
           FilledButton(
             onPressed: () {
-              state.setShortcutBinding(widget.action.id, key);
+              state.setShortcutBinding(widget.action.id, binding);
               Navigator.of(ctx).pop();
               Navigator.of(context).pop();
             },
@@ -375,6 +371,100 @@ class _RebindDialogState extends State<_RebindDialog> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _WaitingDisplay extends StatelessWidget {
+  final ColorScheme cs;
+
+  const _WaitingDisplay({required this.cs});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.keyboard, size: 32, color: cs.primary),
+        const SizedBox(height: 8),
+        Text(
+          '按下快捷键（支持组合键）',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '按 Esc 或点击外部取消',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CapturedDisplay extends StatelessWidget {
+  final LogicalKeyboardKey capturedKey;
+  final int modifiers;
+
+  const _CapturedDisplay({required this.capturedKey, required this.modifiers});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _KeyCap(
+          label: bindingToLabel(ShortcutBinding(keyId: capturedKey.keyId, modifiers: modifiers)),
+          hovered: false,
+          onTap: () {},
+        ),
+        const SizedBox(height: 14),
+        Text(
+          '按 Esc 或点击外部取消',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ModifierHintDisplay extends StatelessWidget {
+  final int mods;
+
+  const _ModifierHintDisplay({required this.mods});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final combo = modifiersFromBitmask(mods);
+    final labels = <String>[];
+    if (combo.contains(ShortcutModifier.ctrl)) labels.add('Ctrl');
+    if (combo.contains(ShortcutModifier.alt)) labels.add('Alt');
+    if (combo.contains(ShortcutModifier.shift)) labels.add('Shift');
+    if (combo.contains(ShortcutModifier.meta)) labels.add('Meta');
+    final hint = labels.isEmpty ? '?' : '${labels.join('+')}+...';
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _KeyCap(
+          label: hint,
+          hovered: false,
+          onTap: () {},
+        ),
+        const SizedBox(height: 14),
+        Text(
+          '再按一个非修饰键完成绑定',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }

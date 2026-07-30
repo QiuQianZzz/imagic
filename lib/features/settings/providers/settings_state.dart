@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../core/constants/window_style.dart';
 import '../../../core/constants/image_background.dart';
@@ -14,7 +13,7 @@ class SettingsState extends ChangeNotifier {
 
   SettingsState(this._service);
 
-  Map<String, LogicalKeyboardKey>? _shortcutKeyCache;
+  Map<String, ShortcutBinding>? _shortcutBindingCache;
 
   ThemeMode get themeMode => _service.themeMode;
   bool get showNavBarArrows => _service.showNavBarArrows;
@@ -27,20 +26,12 @@ class SettingsState extends ChangeNotifier {
   bool get fileAssociation => _service.fileAssociation;
   bool get autoStart => _service.autoStart;
 
-  /// 设置文件关联开关：同步写注册表 + 持久化。
-  /// 非 Windows 平台直接忽略（保持 false）。
-  /// 返回 true 表示成功；失败时不更新状态，调用方可据此提示用户。
-  ///
-  // TODO(system-integration): UI 层目前丢弃返回值，后续应在 general_section.dart
-  // 的 onChanged 回调中检查返回值，失败时用 ScaffoldMessenger.showSnackBar
-  // 提示用户（如"文件关联设置失败，请检查权限"）。详见 docs/架构设计.md 4.6.3。
   Future<bool> setFileAssociation(bool value) async {
     if (!Platform.isWindows) return false;
     final ok = value
         ? WindowsRegistry.registerFileAssociation()
         : WindowsRegistry.unregisterFileAssociation();
     if (!ok) {
-      // 注册表写入失败：以注册表实际状态为准回滚内存值，不持久化
       _service.fileAssociation = WindowsRegistry.isFileAssociationRegistered();
       notifyListeners();
       return false;
@@ -51,12 +42,6 @@ class SettingsState extends ChangeNotifier {
     return true;
   }
 
-  /// 设置开机自启动开关：同步写注册表 + 持久化。
-  /// 非 Windows 平台直接忽略（保持 false）。
-  /// 返回 true 表示成功；失败时不更新状态，调用方可据此提示用户。
-  ///
-  // TODO(system-integration): 同 setFileAssociation，UI 层需基于返回值提示用户。
-  // 详见 docs/架构设计.md 4.6.3。
   Future<bool> setAutoStart(bool value) async {
     if (!Platform.isWindows) return false;
     final ok = value
@@ -139,39 +124,40 @@ class SettingsState extends ChangeNotifier {
     notifyListeners();
   }
 
-  LogicalKeyboardKey getShortcutKey(String actionId) {
-    _shortcutKeyCache ??= _buildShortcutKeyCache();
-    return _shortcutKeyCache![actionId] ?? LogicalKeyboardKey.escape;
+  ShortcutBinding getShortcutBinding(String actionId) {
+    _shortcutBindingCache ??= _buildShortcutBindingCache();
+    return _shortcutBindingCache![actionId] ?? _defaultBinding(actionId);
   }
 
-  Map<String, LogicalKeyboardKey> _buildShortcutKeyCache() {
-    final cache = <String, LogicalKeyboardKey>{};
+  ShortcutBinding _defaultBinding(String actionId) {
+    final def = shortcutActions.firstWhere((a) => a.id == actionId);
+    return ShortcutBinding(keyId: def.defaultKey.keyId, modifiers: def.defaultModifiers);
+  }
+
+  Map<String, ShortcutBinding> _buildShortcutBindingCache() {
+    final cache = <String, ShortcutBinding>{};
     for (final def in shortcutActions) {
       final custom = _service.shortcutBindings[def.id];
-      if (custom != null) {
-        LogicalKeyboardKey? match;
-        for (final k in LogicalKeyboardKey.knownLogicalKeys) {
-          if (k.keyId == custom) { match = k; break; }
-        }
-        cache[def.id] = match ?? def.defaultKey;
-      } else {
-        cache[def.id] = def.defaultKey;
-      }
+      cache[def.id] = custom ?? ShortcutBinding(
+        keyId: def.defaultKey.keyId,
+        modifiers: def.defaultModifiers,
+      );
     }
     return cache;
   }
 
   void _invalidateShortcutCache() {
-    _shortcutKeyCache = null;
+    _shortcutBindingCache = null;
   }
 
-  Future<void> setShortcutBinding(String actionId, LogicalKeyboardKey key) async {
-    final defaultAction = shortcutActions.firstWhere((a) => a.id == actionId);
-    if (key == defaultAction.defaultKey) {
-      // 如果绑定的是默认值，则移除自定义记录
+  Future<void> setShortcutBinding(String actionId, ShortcutBinding binding) async {
+    final def = shortcutActions.firstWhere((a) => a.id == actionId);
+    final isDefault = binding.keyId == def.defaultKey.keyId &&
+        binding.modifiers == def.defaultModifiers;
+    if (isDefault) {
       _service.shortcutBindings.remove(actionId);
     } else {
-      _service.shortcutBindings[actionId] = key.keyId;
+      _service.shortcutBindings[actionId] = binding;
     }
     await _service.save();
     _invalidateShortcutCache();
@@ -186,16 +172,16 @@ class SettingsState extends ChangeNotifier {
   }
 
   bool isShortcutCustom(String actionId) {
-    final defaultAction = shortcutActions.firstWhere((a) => a.id == actionId);
-    final currentKey = getShortcutKey(actionId);
-    return currentKey != defaultAction.defaultKey;
+    final custom = _service.shortcutBindings[actionId];
+    return custom != null;
   }
 
-  List<String> findConflicts(String actionId, LogicalKeyboardKey key) {
+  List<String> findConflicts(String actionId, ShortcutBinding binding) {
     final result = <String>[];
     for (final def in shortcutActions) {
       if (def.id == actionId) continue;
-      if (getShortcutKey(def.id) == key) {
+      final current = getShortcutBinding(def.id);
+      if (current.keyId == binding.keyId && current.modifiers == binding.modifiers) {
         result.add(def.label);
       }
     }

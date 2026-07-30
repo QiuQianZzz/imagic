@@ -5,6 +5,7 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/services/single_instance_handler.dart';
+import '../../../core/shortcuts/shortcut_definitions.dart';
 import '../../../core/utils/fullscreen.dart';
 import '../../../core/utils/key_labels.dart';
 import '../providers/viewer_state.dart';
@@ -154,7 +155,6 @@ class _ViewerScreenState extends State<ViewerScreen>
   final FocusNode _focusNode = FocusNode();
   late final AnimationController _zoomAnimController;
   late final _AnimatedTransformationController _transformController;
-  bool _isActualSizeMode = false;
 
   @override
   void initState() {
@@ -261,23 +261,45 @@ class _ViewerScreenState extends State<ViewerScreen>
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
           final settings = context.read<SettingsState>();
-          if (event.logicalKey ==
-              settings.getShortcutKey('toggle_fullscreen')) {
+          if (_matchShortcut(event, settings.getShortcutBinding('toggle_fullscreen'))) {
             toggleFullscreen();
             return KeyEventResult.handled;
           }
-          if (event.logicalKey == settings.getShortcutKey('exit_fullscreen')) {
+          if (_matchShortcut(event, settings.getShortcutBinding('exit_fullscreen'))) {
             if (fullscreenNotifier.value) toggleFullscreen();
             return KeyEventResult.handled;
           }
-          if (event.logicalKey == settings.getShortcutKey('prev_image')) {
-            final state = context.read<ViewerState>();
-            _goPrev(state);
+          if (_matchShortcut(event, settings.getShortcutBinding('prev_image'))) {
+            _goPrev(context.read<ViewerState>());
             return KeyEventResult.handled;
           }
-          if (event.logicalKey == settings.getShortcutKey('next_image')) {
-            final state = context.read<ViewerState>();
-            _goNext(state);
+          if (_matchShortcut(event, settings.getShortcutBinding('next_image'))) {
+            _goNext(context.read<ViewerState>());
+            return KeyEventResult.handled;
+          }
+          if (_matchShortcut(event, settings.getShortcutBinding('open_file'))) {
+            _openFile();
+            return KeyEventResult.handled;
+          }
+          if (_matchShortcut(event, settings.getShortcutBinding('close_file'))) {
+            _closeImage();
+            return KeyEventResult.handled;
+          }
+          if (_matchShortcut(event, settings.getShortcutBinding('actual_size'))) {
+            _actualSize();
+            return KeyEventResult.handled;
+          }
+          if (_matchShortcut(event, settings.getShortcutBinding('fit_to_window'))) {
+            _clearActualSizeMode();
+            _transformController.animateTo(Matrix4.identity());
+            return KeyEventResult.handled;
+          }
+          if (_matchShortcut(event, settings.getShortcutBinding('zoom_in'))) {
+            _zoom(1.25);
+            return KeyEventResult.handled;
+          }
+          if (_matchShortcut(event, settings.getShortcutBinding('zoom_out'))) {
+            _zoom(1 / 1.25);
             return KeyEventResult.handled;
           }
         }
@@ -359,8 +381,8 @@ class _ViewerScreenState extends State<ViewerScreen>
 
   String _buildFullscreenHintText(BuildContext context) {
     final settings = context.read<SettingsState>();
-    final toggleKey = keyToLabel(settings.getShortcutKey('toggle_fullscreen'));
-    final exitKey = keyToLabel(settings.getShortcutKey('exit_fullscreen'));
+    final toggleKey = bindingToLabel(settings.getShortcutBinding('toggle_fullscreen'));
+    final exitKey = bindingToLabel(settings.getShortcutBinding('exit_fullscreen'));
     return '按 $toggleKey 或 $exitKey 退出全屏';
   }
 
@@ -373,9 +395,7 @@ class _ViewerScreenState extends State<ViewerScreen>
       case MenuAction.saveAs:
         break;
       case MenuAction.closeFile:
-        _clearActualSizeMode();
-        _transformController.value = Matrix4.identity();
-        state.closeImage();
+        _closeImage();
         break;
       case MenuAction.exit:
         break;
@@ -418,12 +438,27 @@ class _ViewerScreenState extends State<ViewerScreen>
   }
 
   void _clearActualSizeMode() {
-    _isActualSizeMode = false;
+  }
+
+  bool _matchShortcut(KeyEvent event, ShortcutBinding binding) {
+    if (event.logicalKey.keyId != binding.keyId) return false;
+    final kb = HardwareKeyboard.instance;
+    var mods = 0;
+    if (kb.isControlPressed) mods |= 1 << ShortcutModifier.ctrl.index;
+    if (kb.isAltPressed) mods |= 1 << ShortcutModifier.alt.index;
+    if (kb.isShiftPressed) mods |= 1 << ShortcutModifier.shift.index;
+    if (kb.isMetaPressed) mods |= 1 << ShortcutModifier.meta.index;
+    return mods == binding.modifiers;
+  }
+
+  void _closeImage() {
+    _clearActualSizeMode();
+    _transformController.value = Matrix4.identity();
+    context.read<ViewerState>().closeImage();
   }
 
   /// 将缩放设为 100%（1 像素 = 1 屏幕像素）。
   void _actualSize() {
-    _isActualSizeMode = true;
     final state = context.read<ViewerState>();
     if (!state.hasImage || state.imageWidth <= 0 || state.imageHeight <= 0) return;
 

@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/image_background.dart';
 import '../constants/window_style.dart';
+import '../shortcuts/shortcut_definitions.dart';
 import '../utils/windows_registry.dart';
 
 class SettingsService {
@@ -31,7 +32,7 @@ class SettingsService {
   List<int> customSeedColors = [];
   WindowStyle windowStyle = WindowStyle.windows;
   ImageBackground imageBackground = ImageBackground.checkerboard;
-  Map<String, int> shortcutBindings = {};
+  Map<String, ShortcutBinding> shortcutBindings = {};
 
   /// 文件关联与自启动开关。
   ///
@@ -84,7 +85,17 @@ class SettingsService {
     if (raw == null) return;
     try {
       final decoded = jsonDecode(raw) as Map<String, dynamic>;
-      shortcutBindings = decoded.map((k, v) => MapEntry(k, (v as num).toInt()));
+      shortcutBindings = decoded.map((k, v) {
+        if (v is num) {
+          // Old format: just keyId, no modifiers
+          return MapEntry(k, ShortcutBinding(keyId: v.toInt()));
+        }
+        final m = v as Map<String, dynamic>;
+        return MapEntry(k, ShortcutBinding(
+          keyId: (m['key'] as num).toInt(),
+          modifiers: (m['mods'] as num?)?.toInt() ?? 0,
+        ));
+      });
     } catch (_) {
       shortcutBindings = {};
     }
@@ -111,7 +122,10 @@ class SettingsService {
     );
     await _prefs.setInt(_keyWindowStyle, windowStyle.index);
     await _prefs.setString(_keyImageBackground, imageBackground.name);
-    await _prefs.setString(_keyShortcutBindings, jsonEncode(shortcutBindings));
+    await _prefs.setString(
+      _keyShortcutBindings,
+      jsonEncode(shortcutBindings.map((k, v) => MapEntry(k, v.toJson()))),
+    );
     // 注意：fileAssociation / autoStart 不写入 prefs，
     // 注册表是唯一数据源，下次启动会重新读取
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/window_style.dart';
+import '../../../core/utils/key_labels.dart';
 import '../../../core/utils/window_controls.dart';
 import '../../settings/providers/settings_state.dart';
 import '../models/menu_action.dart';
@@ -120,6 +121,9 @@ class AppMenuBar extends StatelessWidget {
   }
 
   Widget _buildMenuBar(BuildContext context, ThemeData theme) {
+    final state = context.watch<SettingsState>();
+    String s(String id) => bindingToLabel(state.getShortcutBinding(id));
+
     return MenuTheme(
       data: MenuThemeData(
         style: MenuStyle(
@@ -142,21 +146,21 @@ class AppMenuBar extends StatelessWidget {
         ),
         children: [
           _buildMenu(context, '文件', [
-            _item(context, MenuAction.openFile, '打开图片...', shortcut: 'Ctrl+O'),
+            _item(context, MenuAction.openFile, '打开图片...', shortcut: s('open_file')),
             if (hasImage) ...[
               _sep(),
-              _item(context, MenuAction.closeFile, '关闭当前图片', shortcut: 'Ctrl+W'),
+              _item(context, MenuAction.closeFile, '关闭当前图片', shortcut: s('close_file')),
             ],
           ]),
           _buildMenu(context, '查看', [
             if (hasImage) ...[
-              _item(context, MenuAction.actualSize, '实际大小', shortcut: 'Ctrl+1'),
-              _item(context, MenuAction.fitToWindow, '适应窗口', shortcut: 'Ctrl+0'),
+              _item(context, MenuAction.actualSize, '实际大小', shortcut: s('actual_size')),
+              _item(context, MenuAction.fitToWindow, '适应窗口', shortcut: s('fit_to_window')),
               _sep(),
-              _item(context, MenuAction.zoomIn, '放大', shortcut: 'Ctrl++'),
-              _item(context, MenuAction.zoomOut, '缩小', shortcut: 'Ctrl+-'),
+              _item(context, MenuAction.zoomIn, '放大', shortcut: s('zoom_in')),
+              _item(context, MenuAction.zoomOut, '缩小', shortcut: s('zoom_out')),
               _sep(),
-              _item(context, MenuAction.fullscreen, '全屏', shortcut: 'F11'),
+              _item(context, MenuAction.fullscreen, '全屏', shortcut: s('toggle_fullscreen')),
             ],
           ]),
           _buildMenu(context, '工具', [

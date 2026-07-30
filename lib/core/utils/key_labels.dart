@@ -1,5 +1,27 @@
 import 'package:flutter/services.dart';
 
+import '../shortcuts/shortcut_definitions.dart';
+
+String bindingToLabel(ShortcutBinding binding) {
+  final key = findKeyById(binding.keyId);
+  if (key == null) return '?';
+  final mods = modifiersFromBitmask(binding.modifiers);
+  final parts = <String>[];
+  if (mods.contains(ShortcutModifier.ctrl)) parts.add('Ctrl');
+  if (mods.contains(ShortcutModifier.alt)) parts.add('Alt');
+  if (mods.contains(ShortcutModifier.shift)) parts.add('Shift');
+  if (mods.contains(ShortcutModifier.meta)) parts.add('Meta');
+  parts.add(keyToLabel(key));
+  return parts.join('+');
+}
+
+LogicalKeyboardKey? findKeyById(int keyId) {
+  for (final k in LogicalKeyboardKey.knownLogicalKeys) {
+    if (k.keyId == keyId) return k;
+  }
+  return null;
+}
+
 final Map<LogicalKeyboardKey, String> keyLabels = {
   LogicalKeyboardKey.arrowLeft: '←',
   LogicalKeyboardKey.arrowRight: '→',
@@ -28,13 +50,35 @@ final Map<LogicalKeyboardKey, String> keyLabels = {
   LogicalKeyboardKey.pageUp: 'PageUp',
   LogicalKeyboardKey.pageDown: 'PageDown',
   LogicalKeyboardKey.insert: 'Ins',
+  LogicalKeyboardKey.equal: '=',
+  LogicalKeyboardKey.minus: '-',
+  LogicalKeyboardKey.digit0: '0',
+  LogicalKeyboardKey.digit1: '1',
+  LogicalKeyboardKey.digit2: '2',
+  LogicalKeyboardKey.digit3: '3',
+  LogicalKeyboardKey.digit4: '4',
+  LogicalKeyboardKey.digit5: '5',
+  LogicalKeyboardKey.digit6: '6',
+  LogicalKeyboardKey.digit7: '7',
+  LogicalKeyboardKey.digit8: '8',
+  LogicalKeyboardKey.digit9: '9',
+  LogicalKeyboardKey.numpad0: 'Num0',
+  LogicalKeyboardKey.numpad1: 'Num1',
+  LogicalKeyboardKey.numpad2: 'Num2',
+  LogicalKeyboardKey.numpad3: 'Num3',
+  LogicalKeyboardKey.numpad4: 'Num4',
+  LogicalKeyboardKey.numpad5: 'Num5',
+  LogicalKeyboardKey.numpad6: 'Num6',
+  LogicalKeyboardKey.numpad7: 'Num7',
+  LogicalKeyboardKey.numpad8: 'Num8',
+  LogicalKeyboardKey.numpad9: 'Num9',
 };
 
 String keyToLabel(LogicalKeyboardKey key) {
   final known = keyLabels[key];
   if (known != null) return known;
   final label = key.debugName;
-  if (label != null && label.startsWith('Digit ')) return label.substring(6);
   if (label != null && label.startsWith('Key ')) return label.substring(4);
+  if (label != null && label.startsWith('Digit ')) return label.substring(6);
   return label ?? '?';
 }
