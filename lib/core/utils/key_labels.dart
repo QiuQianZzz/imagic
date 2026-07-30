@@ -15,11 +15,13 @@ String bindingToLabel(ShortcutBinding binding) {
   return parts.join('+');
 }
 
+Map<int, LogicalKeyboardKey>? _keyIdCache;
+
 LogicalKeyboardKey? findKeyById(int keyId) {
-  for (final k in LogicalKeyboardKey.knownLogicalKeys) {
-    if (k.keyId == keyId) return k;
-  }
-  return null;
+  _keyIdCache ??= {
+    for (final k in LogicalKeyboardKey.knownLogicalKeys) k.keyId: k,
+  };
+  return _keyIdCache![keyId];
 }
 
 final Map<LogicalKeyboardKey, String> keyLabels = {

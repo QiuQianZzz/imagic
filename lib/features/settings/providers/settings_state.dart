@@ -26,12 +26,20 @@ class SettingsState extends ChangeNotifier {
   bool get fileAssociation => _service.fileAssociation;
   bool get autoStart => _service.autoStart;
 
+  /// 设置文件关联开关：同步写注册表 + 持久化。
+  /// 非 Windows 平台直接忽略（保持 false）。
+  /// 返回 true 表示成功；失败时不更新状态，调用方可据此提示用户。
+  ///
+  // TODO(system-integration): UI 层目前丢弃返回值，后续应在 general_section.dart
+  // 的 onChanged 回调中检查返回值，失败时用 ScaffoldMessenger.showSnackBar
+  // 提示用户（如"文件关联设置失败，请检查权限"）。详见 docs/架构设计.md 4.6.3。
   Future<bool> setFileAssociation(bool value) async {
     if (!Platform.isWindows) return false;
     final ok = value
         ? WindowsRegistry.registerFileAssociation()
         : WindowsRegistry.unregisterFileAssociation();
     if (!ok) {
+      // 注册表写入失败：以注册表实际状态为准回滚内存值，不持久化
       _service.fileAssociation = WindowsRegistry.isFileAssociationRegistered();
       notifyListeners();
       return false;
@@ -42,6 +50,12 @@ class SettingsState extends ChangeNotifier {
     return true;
   }
 
+  /// 设置开机自启动开关：同步写注册表 + 持久化。
+  /// 非 Windows 平台直接忽略（保持 false）。
+  /// 返回 true 表示成功；失败时不更新状态，调用方可据此提示用户。
+  ///
+  // TODO(system-integration): 同 setFileAssociation，UI 层需基于返回值提示用户。
+  // 详见 docs/架构设计.md 4.6.3。
   Future<bool> setAutoStart(bool value) async {
     if (!Platform.isWindows) return false;
     final ok = value

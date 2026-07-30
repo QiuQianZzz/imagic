@@ -438,6 +438,7 @@ class _ViewerScreenState extends State<ViewerScreen>
   }
 
   void _clearActualSizeMode() {
+    // reserved
   }
 
   bool _matchShortcut(KeyEvent event, ShortcutBinding binding) {

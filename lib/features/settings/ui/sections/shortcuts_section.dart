@@ -226,6 +226,17 @@ class _KeyCapState extends State<_KeyCap> {
   }
 }
 
+bool _isModifierKey(LogicalKeyboardKey key) {
+  return key == LogicalKeyboardKey.shiftLeft ||
+      key == LogicalKeyboardKey.shiftRight ||
+      key == LogicalKeyboardKey.controlLeft ||
+      key == LogicalKeyboardKey.controlRight ||
+      key == LogicalKeyboardKey.altLeft ||
+      key == LogicalKeyboardKey.altRight ||
+      key == LogicalKeyboardKey.metaLeft ||
+      key == LogicalKeyboardKey.metaRight;
+}
+
 class _RebindDialog extends StatefulWidget {
   final ShortcutAction action;
 
@@ -319,17 +330,6 @@ class _RebindDialogState extends State<_RebindDialog> {
         ),
       ),
     );
-  }
-
-  bool _isModifierKey(LogicalKeyboardKey key) {
-    return key == LogicalKeyboardKey.shiftLeft ||
-        key == LogicalKeyboardKey.shiftRight ||
-        key == LogicalKeyboardKey.controlLeft ||
-        key == LogicalKeyboardKey.controlRight ||
-        key == LogicalKeyboardKey.altLeft ||
-        key == LogicalKeyboardKey.altRight ||
-        key == LogicalKeyboardKey.metaLeft ||
-        key == LogicalKeyboardKey.metaRight;
   }
 
   void _onBindingSelected(BuildContext context, ShortcutBinding binding) {

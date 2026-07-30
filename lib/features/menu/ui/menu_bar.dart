@@ -121,9 +121,6 @@ class AppMenuBar extends StatelessWidget {
   }
 
   Widget _buildMenuBar(BuildContext context, ThemeData theme) {
-    final state = context.watch<SettingsState>();
-    String s(String id) => bindingToLabel(state.getShortcutBinding(id));
-
     return MenuTheme(
       data: MenuThemeData(
         style: MenuStyle(
@@ -146,21 +143,21 @@ class AppMenuBar extends StatelessWidget {
         ),
         children: [
           _buildMenu(context, '文件', [
-            _item(context, MenuAction.openFile, '打开图片...', shortcut: s('open_file')),
+            _item(context, MenuAction.openFile, '打开图片...', shortcut: _shortcutLabel(context, 'open_file')),
             if (hasImage) ...[
               _sep(),
-              _item(context, MenuAction.closeFile, '关闭当前图片', shortcut: s('close_file')),
+              _item(context, MenuAction.closeFile, '关闭当前图片', shortcut: _shortcutLabel(context, 'close_file')),
             ],
           ]),
           _buildMenu(context, '查看', [
             if (hasImage) ...[
-              _item(context, MenuAction.actualSize, '实际大小', shortcut: s('actual_size')),
-              _item(context, MenuAction.fitToWindow, '适应窗口', shortcut: s('fit_to_window')),
+              _item(context, MenuAction.actualSize, '实际大小', shortcut: _shortcutLabel(context, 'actual_size')),
+              _item(context, MenuAction.fitToWindow, '适应窗口', shortcut: _shortcutLabel(context, 'fit_to_window')),
               _sep(),
-              _item(context, MenuAction.zoomIn, '放大', shortcut: s('zoom_in')),
-              _item(context, MenuAction.zoomOut, '缩小', shortcut: s('zoom_out')),
+              _item(context, MenuAction.zoomIn, '放大', shortcut: _shortcutLabel(context, 'zoom_in')),
+              _item(context, MenuAction.zoomOut, '缩小', shortcut: _shortcutLabel(context, 'zoom_out')),
               _sep(),
-              _item(context, MenuAction.fullscreen, '全屏', shortcut: s('toggle_fullscreen')),
+              _item(context, MenuAction.fullscreen, '全屏', shortcut: _shortcutLabel(context, 'toggle_fullscreen')),
             ],
           ]),
           _buildMenu(context, '工具', [
@@ -173,6 +170,9 @@ class AppMenuBar extends StatelessWidget {
       ),
     );
   }
+
+  String _shortcutLabel(BuildContext context, String id) =>
+      bindingToLabel(context.watch<SettingsState>().getShortcutBinding(id));
 
   Widget _dragHandle({required Widget child}) => Listener(
     onPointerDown: (_) => windowStartDragging(),
