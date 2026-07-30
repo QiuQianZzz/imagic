@@ -53,14 +53,15 @@ class WindowsRegistry {
             lpdwDisposition,
           ) ==
           ERROR_SUCCESS) {
-        final friendlyName = 'Imagic Image'.toNativeUtf16(allocator: arena);
+        const friendlyName = 'Imagic 图片查看器';
+        final friendlyNameNative = friendlyName.toNativeUtf16(allocator: arena);
         final ok = RegSetValueEx(
               phkResult.value,
               nullptr,
               0,
               REG_SZ,
-              friendlyName.cast<Uint8>(),
-              ('Imagic Image'.length + 1) * 2,
+              friendlyNameNative.cast<Uint8>(),
+              (friendlyName.length + 1) * 2,
             ) ==
             ERROR_SUCCESS;
         RegCloseKey(phkResult.value);

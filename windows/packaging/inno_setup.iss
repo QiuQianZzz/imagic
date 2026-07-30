@@ -79,7 +79,7 @@ Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Registry]
 ; ---- ProgId 节点（无论是否勾选 fileassoc 都写，方便应用内开关后续启用）----
-Root: HKCU; Subkey: "Software\Classes\Imagic.Image"; ValueType: string; ValueName: ""; ValueData: "Imagic Image"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\Imagic.Image"; ValueType: string; ValueName: ""; ValueData: "Imagic 图片查看器"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\Classes\Imagic.Image\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#MyAppExeName},0"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\Classes\Imagic.Image\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Flags: uninsdeletekey
 
