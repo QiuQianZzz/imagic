@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:window_manager/window_manager.dart';
 
 import '../../../core/constants/window_style.dart';
+import '../../../core/utils/window_controls.dart';
 import '../../settings/providers/settings_state.dart';
 import '../models/menu_action.dart';
 
-class AppMenuBar extends StatefulWidget {
+class AppMenuBar extends StatelessWidget {
   final bool hasImage;
   final bool hasPrev;
   final bool hasNext;
@@ -29,41 +29,6 @@ class AppMenuBar extends StatefulWidget {
   });
 
   @override
-  State<AppMenuBar> createState() => _AppMenuBarState();
-}
-
-class _AppMenuBarState extends State<AppMenuBar> with WindowListener {
-  bool _maximized = false;
-
-  @override
-  void initState() {
-    super.initState();
-    windowManager.addListener(this);
-    _initMaximized();
-  }
-
-  Future<void> _initMaximized() async {
-    final m = await windowManager.isMaximized();
-    if (mounted) setState(() => _maximized = m);
-  }
-
-  @override
-  void dispose() {
-    windowManager.removeListener(this);
-    super.dispose();
-  }
-
-  @override
-  void onWindowMaximize() {
-    if (mounted) setState(() => _maximized = true);
-  }
-
-  @override
-  void onWindowUnmaximize() {
-    if (mounted) setState(() => _maximized = false);
-  }
-
-  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final style = context.watch<SettingsState>().windowStyle;
@@ -74,33 +39,33 @@ class _AppMenuBarState extends State<AppMenuBar> with WindowListener {
         border: Border(bottom: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3))),
       ),
       child: style == WindowStyle.macos
-          ? _buildMacosLayout(theme)
-          : _buildWindowsLayout(theme),
+          ? _buildMacosLayout(context, theme)
+          : _buildWindowsLayout(context, theme),
     );
   }
 
-  Widget _buildWindowsLayout(ThemeData theme) {
+  Widget _buildWindowsLayout(BuildContext context, ThemeData theme) {
     final state = context.watch<SettingsState>();
     return Row(
       children: [
         _buildLogo(theme),
         _dragHandle(child: Container(width: 4, color: Colors.transparent)),
-        _buildMenuBar(theme),
+        _buildMenuBar(context, theme),
         _buildTitle(theme),
         ..._buildNavButtons(state),
-        _WindowControls(maximized: _maximized),
+        const _WindowControls(),
       ],
     );
   }
 
-  Widget _buildMacosLayout(ThemeData theme) {
+  Widget _buildMacosLayout(BuildContext context, ThemeData theme) {
     final state = context.watch<SettingsState>();
     return Row(
       children: [
-        _MacTrafficLights(maximized: _maximized),
+        const _MacTrafficLights(),
         _buildLogo(theme),
         _dragHandle(child: Container(width: 4, color: Colors.transparent)),
-        _buildMenuBar(theme),
+        _buildMenuBar(context, theme),
         _buildTitle(theme),
         ..._buildNavButtons(state),
       ],
@@ -130,9 +95,9 @@ class _AppMenuBarState extends State<AppMenuBar> with WindowListener {
         child: Container(
           color: Colors.transparent,
           alignment: Alignment.center,
-          child: widget.fileName != null
+          child: fileName != null
               ? Text(
-                  widget.fileName!,
+                  fileName!,
                   style: theme.textTheme.bodyMedium,
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
@@ -145,16 +110,16 @@ class _AppMenuBarState extends State<AppMenuBar> with WindowListener {
 
   List<Widget> _buildNavButtons(SettingsState state) {
     return [
-      if (widget.hasImage && state.showNavBarArrows) ...[
-        _barButton(Icons.chevron_left, widget.hasPrev ? widget.onPrev : null, '上一张'),
-        _barButton(Icons.chevron_right, widget.hasNext ? widget.onNext : null, '下一张'),
+      if (hasImage && state.showNavBarArrows) ...[
+        _barButton(Icons.chevron_left, hasPrev ? onPrev : null, '上一张'),
+        _barButton(Icons.chevron_right, hasNext ? onNext : null, '下一张'),
       ],
       if (state.showNavBarOpen)
-        _barButton(Icons.folder_open, widget.onOpenFile, '打开文件'),
+        _barButton(Icons.folder_open, onOpenFile, '打开文件'),
     ];
   }
 
-  Widget _buildMenuBar(ThemeData theme) {
+  Widget _buildMenuBar(BuildContext context, ThemeData theme) {
     return MenuTheme(
       data: MenuThemeData(
         style: MenuStyle(
@@ -176,36 +141,36 @@ class _AppMenuBarState extends State<AppMenuBar> with WindowListener {
           shape: WidgetStatePropertyAll(const RoundedRectangleBorder()),
         ),
         children: [
-          _buildMenu('文件', [
-            _item(MenuAction.openFile, '打开图片...', shortcut: 'Ctrl+O'),
-            if (widget.hasImage) ...[
+          _buildMenu(context, '文件', [
+            _item(context, MenuAction.openFile, '打开图片...', shortcut: 'Ctrl+O'),
+            if (hasImage) ...[
               _sep(),
-              _item(MenuAction.closeFile, '关闭当前图片', shortcut: 'Ctrl+W'),
+              _item(context, MenuAction.closeFile, '关闭当前图片', shortcut: 'Ctrl+W'),
             ],
           ]),
-          _buildMenu('编辑', [
-            _item(MenuAction.undo, '撤销', shortcut: 'Ctrl+Z'),
-            _item(MenuAction.redo, '重做', shortcut: 'Ctrl+Shift+Z'),
+          _buildMenu(context, '编辑', [
+            _item(context, MenuAction.undo, '撤销', shortcut: 'Ctrl+Z'),
+            _item(context, MenuAction.redo, '重做', shortcut: 'Ctrl+Shift+Z'),
           ]),
-          _buildMenu('查看', [
-            if (widget.hasImage) ...[
-              _item(MenuAction.actualSize, '实际大小', shortcut: 'Ctrl+1'),
-              _item(MenuAction.fitToWindow, '适应窗口', shortcut: 'Ctrl+0'),
+          _buildMenu(context, '查看', [
+            if (hasImage) ...[
+              _item(context, MenuAction.actualSize, '实际大小', shortcut: 'Ctrl+1'),
+              _item(context, MenuAction.fitToWindow, '适应窗口', shortcut: 'Ctrl+0'),
               _sep(),
-              _item(MenuAction.zoomIn, '放大', shortcut: 'Ctrl++'),
-              _item(MenuAction.zoomOut, '缩小', shortcut: 'Ctrl+-'),
+              _item(context, MenuAction.zoomIn, '放大', shortcut: 'Ctrl++'),
+              _item(context, MenuAction.zoomOut, '缩小', shortcut: 'Ctrl+-'),
               _sep(),
-              _item(MenuAction.fullscreen, '全屏', shortcut: 'F11'),
+              _item(context, MenuAction.fullscreen, '全屏', shortcut: 'F11'),
             ],
-            _item(MenuAction.togglePanel, '文件面板', shortcut: 'Ctrl+B'),
+            _item(context, MenuAction.togglePanel, '文件面板', shortcut: 'Ctrl+B'),
           ]),
-          _buildMenu('工具', [
-            if (widget.hasImage)
-              _item(MenuAction.editMode, '编辑模式', shortcut: 'Ctrl+E'),
-            _item(MenuAction.openSettings, '设置...'),
+          _buildMenu(context, '工具', [
+            if (hasImage)
+              _item(context, MenuAction.editMode, '编辑模式', shortcut: 'Ctrl+E'),
+            _item(context, MenuAction.openSettings, '设置...'),
           ]),
-          _buildMenu('帮助', [
-            _item(MenuAction.about, '关于 Imagic'),
+          _buildMenu(context, '帮助', [
+            _item(context, MenuAction.about, '关于 Imagic'),
           ]),
         ],
       ),
@@ -213,7 +178,7 @@ class _AppMenuBarState extends State<AppMenuBar> with WindowListener {
   }
 
   Widget _dragHandle({required Widget child}) => Listener(
-    onPointerDown: (_) => windowManager.startDragging(),
+    onPointerDown: (_) => windowStartDragging(),
     child: child,
   );
 
@@ -232,7 +197,7 @@ class _AppMenuBarState extends State<AppMenuBar> with WindowListener {
     );
   }
 
-  Widget _buildMenu(String label, List<Widget> children) {
+  Widget _buildMenu(BuildContext context, String label, List<Widget> children) {
     final cs = Theme.of(context).colorScheme;
     return SubmenuButton(
       style: ButtonStyle(
@@ -255,9 +220,9 @@ class _AppMenuBarState extends State<AppMenuBar> with WindowListener {
     );
   }
 
-  Widget _item(MenuAction action, String label, {String? shortcut}) {
+  Widget _item(BuildContext context, MenuAction action, String label, {String? shortcut}) {
     return MenuItemButton(
-      onPressed: () => widget.onAction(action),
+      onPressed: () => onAction(action),
       style: ButtonStyle(
         visualDensity: VisualDensity.compact,
         padding: WidgetStatePropertyAll(const EdgeInsets.symmetric(horizontal: 16, vertical: 6)),
@@ -281,35 +246,32 @@ class _AppMenuBarState extends State<AppMenuBar> with WindowListener {
 }
 
 class _WindowControls extends StatelessWidget {
-  final bool maximized;
-
-  const _WindowControls({required this.maximized});
+  const _WindowControls();
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _WindowButton(
-          icon: Icons.horizontal_rule,
-          onTap: () => windowManager.minimize(),
-        ),
-        _WindowButton(
-          icon: maximized ? Icons.filter_none : Icons.crop_square,
-          onTap: () {
-            if (maximized) {
-              windowManager.unmaximize();
-            } else {
-              windowManager.maximize();
-            }
-          },
-        ),
-        _WindowButton(
-          icon: Icons.close,
-          onTap: () => windowManager.close(),
-          isClose: true,
-        ),
-      ],
+    return ValueListenableBuilder<bool>(
+      valueListenable: windowMaximizedNotifier,
+      builder: (context, maximized, _) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _WindowButton(
+              icon: Icons.horizontal_rule,
+              onTap: () => windowMinimize(),
+            ),
+            _WindowButton(
+              icon: maximized ? Icons.filter_none : Icons.crop_square,
+              onTap: () => windowToggleMaximize(),
+            ),
+            _WindowButton(
+              icon: Icons.close,
+              onTap: () => windowClose(),
+              isClose: true,
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -361,9 +323,7 @@ class _WindowButtonState extends State<_WindowButton> {
 }
 
 class _MacTrafficLights extends StatelessWidget {
-  final bool maximized;
-
-  const _MacTrafficLights({required this.maximized});
+  const _MacTrafficLights();
 
   static const _red = Color(0xFFFF5F57);
   static const _yellow = Color(0xFFFFBD2E);
@@ -371,28 +331,27 @@ class _MacTrafficLights extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const SizedBox(width: 12),
-        _MacDot(color: _red, hoverIcon: Icons.close, iconColor: Color(0xFF4D1A1A), onTap: () => windowManager.close()),
-        const SizedBox(width: 8),
-        _MacDot(color: _yellow, hoverIcon: Icons.horizontal_rule, iconColor: Color(0xFF4D3A00), onTap: () => windowManager.minimize()),
-        const SizedBox(width: 8),
-        _MacDot(
-          color: _green,
-          hoverIcon: maximized ? Icons.filter_none : Icons.crop_square,
-          iconColor: Color(0xFF003D1A),
-          onTap: () {
-            if (maximized) {
-              windowManager.unmaximize();
-            } else {
-              windowManager.maximize();
-            }
-          },
-        ),
-        const SizedBox(width: 8),
-      ],
+    return ValueListenableBuilder<bool>(
+      valueListenable: windowMaximizedNotifier,
+      builder: (context, maximized, _) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(width: 12),
+            _MacDot(color: _red, hoverIcon: Icons.close, iconColor: const Color(0xFF4D1A1A), onTap: () => windowClose()),
+            const SizedBox(width: 8),
+            _MacDot(color: _yellow, hoverIcon: Icons.horizontal_rule, iconColor: const Color(0xFF4D3A00), onTap: () => windowMinimize()),
+            const SizedBox(width: 8),
+            _MacDot(
+              color: _green,
+              hoverIcon: maximized ? Icons.filter_none : Icons.crop_square,
+              iconColor: const Color(0xFF003D1A),
+              onTap: () => windowToggleMaximize(),
+            ),
+            const SizedBox(width: 8),
+          ],
+        );
+      },
     );
   }
 }

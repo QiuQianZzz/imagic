@@ -182,12 +182,12 @@ class _ViewerScreenState extends State<ViewerScreen>
 
   @override
   void onWindowMaximize() {
-    fullscreenNotifier.value = true;
+    onWindowMaximized();
   }
 
   @override
   void onWindowUnmaximize() {
-    fullscreenNotifier.value = false;
+    onWindowUnmaximized();
   }
 
   Widget _buildCanvas(ViewerState state) {
@@ -211,7 +211,8 @@ class _ViewerScreenState extends State<ViewerScreen>
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
           final settings = context.read<SettingsState>();
-          if (event.logicalKey == settings.getShortcutKey('toggle_fullscreen')) {
+          if (event.logicalKey ==
+              settings.getShortcutKey('toggle_fullscreen')) {
             toggleFullscreen();
             return KeyEventResult.handled;
           }
@@ -252,42 +253,42 @@ class _ViewerScreenState extends State<ViewerScreen>
               }
               final canvas = _buildCanvas(state);
               return Scaffold(
-                    body: Column(
-                      children: [
-                        AnimatedSize(
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOutCubic,
-                          alignment: Alignment.topCenter,
-                          child: fs
-                              ? const SizedBox.shrink()
-                              : AppMenuBar(
-                                  hasImage: state.hasImage,
-                                  hasPrev: state.currentIndex > 0,
-                                  hasNext:
-                                      state.currentIndex < state.totalCount - 1,
-                                  fileName: state.hasImage
-                                      ? state.currentName
-                                      : null,
-                                  onOpenFile: _openFile,
-                                  onPrev: () => state.previousFile(),
-                                  onNext: () => state.nextFile(),
-                                  onAction: (action) =>
-                                      _handleMenuAction(action, state),
-                                ),
-                        ),
-                        Expanded(child: canvas),
-                      ],
-                    ),
-                    bottomNavigationBar: AnimatedSize(
+                body: Column(
+                  children: [
+                    AnimatedSize(
                       duration: const Duration(milliseconds: 200),
                       curve: Curves.easeOutCubic,
-                      alignment: Alignment.bottomCenter,
+                      alignment: Alignment.topCenter,
                       child: fs
                           ? const SizedBox.shrink()
-                          : ZoomIndicator(
-                              transformController: _transformController,
+                          : AppMenuBar(
+                              hasImage: state.hasImage,
+                              hasPrev: state.currentIndex > 0,
+                              hasNext:
+                                  state.currentIndex < state.totalCount - 1,
+                              fileName: state.hasImage
+                                  ? state.currentName
+                                  : null,
+                              onOpenFile: _openFile,
+                              onPrev: () => state.previousFile(),
+                              onNext: () => state.nextFile(),
+                              onAction: (action) =>
+                                  _handleMenuAction(action, state),
                             ),
                     ),
+                    Expanded(child: canvas),
+                  ],
+                ),
+                bottomNavigationBar: AnimatedSize(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.bottomCenter,
+                  child: fs
+                      ? const SizedBox.shrink()
+                      : ZoomIndicator(
+                          transformController: _transformController,
+                        ),
+                ),
               );
             },
           );
