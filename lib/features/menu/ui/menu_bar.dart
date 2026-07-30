@@ -148,10 +148,6 @@ class AppMenuBar extends StatelessWidget {
               _item(context, MenuAction.closeFile, '关闭当前图片', shortcut: 'Ctrl+W'),
             ],
           ]),
-          _buildMenu(context, '编辑', [
-            _item(context, MenuAction.undo, '撤销', shortcut: 'Ctrl+Z'),
-            _item(context, MenuAction.redo, '重做', shortcut: 'Ctrl+Shift+Z'),
-          ]),
           _buildMenu(context, '查看', [
             if (hasImage) ...[
               _item(context, MenuAction.actualSize, '实际大小', shortcut: 'Ctrl+1'),
@@ -162,11 +158,8 @@ class AppMenuBar extends StatelessWidget {
               _sep(),
               _item(context, MenuAction.fullscreen, '全屏', shortcut: 'F11'),
             ],
-            _item(context, MenuAction.togglePanel, '文件面板', shortcut: 'Ctrl+B'),
           ]),
           _buildMenu(context, '工具', [
-            if (hasImage)
-              _item(context, MenuAction.editMode, '编辑模式', shortcut: 'Ctrl+E'),
             _item(context, MenuAction.openSettings, '设置...'),
           ]),
           _buildMenu(context, '帮助', [
