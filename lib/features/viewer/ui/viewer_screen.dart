@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/utils/fullscreen.dart';
 import '../providers/viewer_state.dart';
 import '../../menu/models/menu_action.dart';
 import '../../menu/ui/menu_bar.dart';
@@ -142,19 +145,23 @@ class ViewerScreen extends StatefulWidget {
 }
 
 class _ViewerScreenState extends State<ViewerScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WindowListener {
   final GlobalKey _canvasKey = GlobalKey();
+  final FocusNode _focusNode = FocusNode();
   late final AnimationController _zoomAnimController;
   late final _AnimatedTransformationController _transformController;
 
   @override
   void initState() {
     super.initState();
+    windowManager.addListener(this);
     _zoomAnimController = AnimationController(vsync: this);
     _transformController = _AnimatedTransformationController(
       _zoomAnimController,
       _canvasKey,
     );
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _focusNode.requestFocus());
     if (widget.initialFile != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         context.read<ViewerState>().openFile(widget.initialFile!);
@@ -164,61 +171,106 @@ class _ViewerScreenState extends State<ViewerScreen>
 
   @override
   void dispose() {
+    _focusNode.dispose();
+    windowManager.removeListener(this);
     _zoomAnimController.dispose();
     _transformController.dispose();
     super.dispose();
   }
 
   @override
+  void onWindowMaximize() {
+    fullscreenNotifier.value = true;
+  }
+
+  @override
+  void onWindowUnmaximize() {
+    fullscreenNotifier.value = false;
+  }
+
+  Widget _buildCanvas(ViewerState state) {
+    return ImageCanvas(
+      key: _canvasKey,
+      onOpenFile: _openFile,
+      transformController: _transformController,
+      onReset: () =>
+          _transformController.animateTo(Matrix4.identity()),
+      hasPrev: state.currentIndex > 0,
+      hasNext: state.currentIndex < state.totalCount - 1,
+      onPrev: () => state.previousFile(),
+      onNext: () => state.nextFile(),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Consumer<ViewerState>(
-      builder: (context, state, _) {
-        if (state.errorMessage != null) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(state.errorMessage!),
-                  duration: const Duration(seconds: 3),
-                ),
-              );
-              state.clearError();
-            }
-          });
+    return Focus(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.f11) {
+          toggleFullscreen();
+          return KeyEventResult.handled;
         }
-        return Scaffold(
-          body: Column(
-            children: [
-              AppMenuBar(
-                hasImage: state.hasImage,
-                hasPrev: state.currentIndex > 0,
-                hasNext: state.currentIndex < state.totalCount - 1,
-                fileName: state.hasImage ? state.currentName : null,
-                onOpenFile: _openFile,
-                onPrev: () => state.previousFile(),
-                onNext: () => state.nextFile(),
-                onAction: (action) => _handleMenuAction(action, state),
+        return KeyEventResult.ignored;
+      },
+      child: ValueListenableBuilder<bool>(
+        valueListenable: fullscreenNotifier,
+        builder: (context, fs, _) {
+          return Consumer<ViewerState>(
+          builder: (context, state, _) {
+            if (state.errorMessage != null) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(state.errorMessage!),
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                  state.clearError();
+                }
+              });
+            }
+            final canvas = _buildCanvas(state);
+            return Scaffold(
+              body: Column(
+                children: [
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.topCenter,
+                    child: fs
+                        ? const SizedBox.shrink()
+                        : AppMenuBar(
+                            hasImage: state.hasImage,
+                            hasPrev: state.currentIndex > 0,
+                            hasNext: state.currentIndex < state.totalCount - 1,
+                            fileName: state.hasImage ? state.currentName : null,
+                            onOpenFile: _openFile,
+                            onPrev: () => state.previousFile(),
+                            onNext: () => state.nextFile(),
+                            onAction: (action) => _handleMenuAction(action, state),
+                          ),
+                  ),
+                  Expanded(child: canvas),
+                ],
               ),
-              Expanded(
-                child: ImageCanvas(
-                  key: _canvasKey,
-                  onOpenFile: _openFile,
-                  transformController: _transformController,
-                  onReset: () =>
-                      _transformController.animateTo(Matrix4.identity()),
-                  hasPrev: state.currentIndex > 0,
-                  hasNext: state.currentIndex < state.totalCount - 1,
-                  onPrev: () => state.previousFile(),
-                  onNext: () => state.nextFile(),
-                ),
+              bottomNavigationBar: AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.bottomCenter,
+                child: fs
+                    ? const SizedBox.shrink()
+                    : ZoomIndicator(
+                        transformController: _transformController,
+                      ),
               ),
-            ],
-          ),
-          bottomNavigationBar: ZoomIndicator(
-            transformController: _transformController,
-          ),
+            );
+          },
         );
       },
+      ),
     );
   }
 
@@ -251,10 +303,13 @@ class _ViewerScreenState extends State<ViewerScreen>
         _zoom(1 / 1.25);
         break;
       case MenuAction.fullscreen:
+        toggleFullscreen();
         break;
       case MenuAction.togglePanel:
+        // TODO: 文件面板（侧边栏文件浏览器）
         break;
       case MenuAction.editMode:
+        // TODO: 编辑模式
         break;
       case MenuAction.openSettings:
         Navigator.of(
@@ -283,12 +338,7 @@ class _ViewerScreenState extends State<ViewerScreen>
       AppConstants.kMaxZoom,
     );
     if ((s - current.getMaxScaleOnAxis()).abs() < 0.001) return;
-    final target = Matrix4.diagonal3Values(s, s, s)
-      ..setTranslationRaw(
-        current.getTranslation().x,
-        current.getTranslation().y,
-        0,
-      );
+    final target = _transformController._withCenterFocal(current, s);
     _transformController.animateTo(target);
   }
 

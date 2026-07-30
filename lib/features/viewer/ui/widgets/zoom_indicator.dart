@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/utils/fullscreen.dart';
 import '../../providers/viewer_state.dart';
 
 /// 底栏，左侧显示图片信息（进度、尺寸、大小、格式），右侧显示缩放比例。
@@ -50,6 +51,17 @@ class ZoomIndicator extends StatelessWidget {
           ],
           const Spacer(),
           _ZoomValue(transformController: transformController),
+          const SizedBox(width: 12),
+          ValueListenableBuilder<bool>(
+            valueListenable: fullscreenNotifier,
+            builder: (context, fs, _) => IconButton(
+              icon: Icon(fs ? Icons.fullscreen_exit : Icons.fullscreen, size: 18),
+              onPressed: toggleFullscreen,
+              mouseCursor: SystemMouseCursors.click,
+              visualDensity: VisualDensity.compact,
+              tooltip: fs ? '退出全屏' : '全屏',
+            ),
+          ),
         ],
       ),
     );
