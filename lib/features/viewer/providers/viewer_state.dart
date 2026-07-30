@@ -42,6 +42,9 @@ class ViewerState extends ChangeNotifier {
 
   int get totalCount => _files.length;
 
+  bool get canGoPrev => _currentIndex > 0;
+  bool get canGoNext => _currentIndex < _files.length - 1;
+
   /// 打开指定路径的图片文件。
   ///
   /// 根据文件类型采用不同的加载策略：

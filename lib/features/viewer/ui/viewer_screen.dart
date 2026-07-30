@@ -192,16 +192,26 @@ class _ViewerScreenState extends State<ViewerScreen>
     onWindowUnmaximized();
   }
 
+  Future<void> _goPrev(ViewerState state) async {
+    if (!state.canGoPrev) return;
+    await state.previousFile();
+  }
+
+  Future<void> _goNext(ViewerState state) async {
+    if (!state.canGoNext) return;
+    await state.nextFile();
+  }
+
   Widget _buildCanvas(ViewerState state) {
     return ImageCanvas(
       key: _canvasKey,
       onOpenFile: _openFile,
       transformController: _transformController,
       onReset: () => _transformController.animateTo(Matrix4.identity()),
-      hasPrev: state.currentIndex > 0,
-      hasNext: state.currentIndex < state.totalCount - 1,
-      onPrev: () => state.previousFile(),
-      onNext: () => state.nextFile(),
+      hasPrev: state.canGoPrev,
+      hasNext: state.canGoNext,
+      onPrev: () => _goPrev(state),
+      onNext: () => _goNext(state),
     );
   }
 
@@ -224,12 +234,12 @@ class _ViewerScreenState extends State<ViewerScreen>
           }
           if (event.logicalKey == settings.getShortcutKey('prev_image')) {
             final state = context.read<ViewerState>();
-            if (state.currentIndex > 0) state.previousFile();
+            _goPrev(state);
             return KeyEventResult.handled;
           }
           if (event.logicalKey == settings.getShortcutKey('next_image')) {
             final state = context.read<ViewerState>();
-            if (state.currentIndex < state.totalCount - 1) state.nextFile();
+            _goNext(state);
             return KeyEventResult.handled;
           }
         }
@@ -267,15 +277,14 @@ class _ViewerScreenState extends State<ViewerScreen>
                               ? const SizedBox.shrink()
                               : AppMenuBar(
                                   hasImage: state.hasImage,
-                                  hasPrev: state.currentIndex > 0,
-                                  hasNext:
-                                      state.currentIndex < state.totalCount - 1,
+                                  hasPrev: state.canGoPrev,
+                                  hasNext: state.canGoNext,
                                   fileName: state.hasImage
                                       ? state.currentName
                                       : null,
                                   onOpenFile: _openFile,
-                                  onPrev: () => state.previousFile(),
-                                  onNext: () => state.nextFile(),
+                                  onPrev: () => _goPrev(state),
+                                  onNext: () => _goNext(state),
                                   onAction: (action) =>
                                       _handleMenuAction(action, state),
                                 ),
