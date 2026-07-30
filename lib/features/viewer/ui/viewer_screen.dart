@@ -202,10 +202,24 @@ class _ViewerScreenState extends State<ViewerScreen>
     await state.nextFile();
   }
 
+  Future<void> _openFromPath(String path) async {
+    if (!mounted) return;
+    await context.read<ViewerState>().openFile(path);
+  }
+
+  Future<void> _openFile() async {
+    final fileService = context.read<FileService>();
+    final path = await fileService.openFileDialog();
+    if (path != null) {
+      await _openFromPath(path);
+    }
+  }
+
   Widget _buildCanvas(ViewerState state) {
     return ImageCanvas(
       key: _canvasKey,
       onOpenFile: _openFile,
+      onDropFile: _openFromPath,
       transformController: _transformController,
       onReset: () => _transformController.animateTo(Matrix4.identity()),
       hasPrev: state.canGoPrev,
@@ -371,14 +385,6 @@ class _ViewerScreenState extends State<ViewerScreen>
       case MenuAction.about:
         _showAbout();
         break;
-    }
-  }
-
-  Future<void> _openFile() async {
-    final fileService = context.read<FileService>();
-    final path = await fileService.openFileDialog();
-    if (path != null && mounted) {
-      context.read<ViewerState>().openFile(path);
     }
   }
 

@@ -11,6 +11,7 @@ import '../../providers/viewer_state.dart';
 /// 图片画布组件，支持空状态提示、图片渲染、缩放平移和拖拽打开。
 class ImageCanvas extends StatelessWidget {
   final VoidCallback? onOpenFile;
+  final ValueChanged<String>? onDropFile;
   final TransformationController? transformController;
   final VoidCallback? onReset;
   final bool hasPrev;
@@ -21,6 +22,7 @@ class ImageCanvas extends StatelessWidget {
   const ImageCanvas({
     super.key,
     this.onOpenFile,
+    this.onDropFile,
     this.transformController,
     this.onReset,
     this.hasPrev = false,
@@ -39,7 +41,9 @@ class ImageCanvas extends StatelessWidget {
         return DropTarget(
           onDragDone: (details) {
             if (details.files.isEmpty) return;
-            context.read<ViewerState>().openFile(details.files.first.path);
+            if (onDropFile != null) {
+              onDropFile!(details.files.first.path);
+            }
           },
           child: child,
         );
