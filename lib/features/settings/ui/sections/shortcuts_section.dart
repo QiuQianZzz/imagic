@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/shortcuts/shortcut_definitions.dart';
+import '../../../../core/utils/key_labels.dart';
 import '../../providers/settings_state.dart';
 import '../widgets/section_card.dart';
 
@@ -36,36 +37,6 @@ class _ShortcutItem extends StatelessWidget {
 
   const _ShortcutItem({required this.action});
 
-  static final _keyLabels = <LogicalKeyboardKey, String>{
-    LogicalKeyboardKey.arrowLeft: '←',
-    LogicalKeyboardKey.arrowRight: '→',
-    LogicalKeyboardKey.arrowUp: '↑',
-    LogicalKeyboardKey.arrowDown: '↓',
-    LogicalKeyboardKey.escape: 'Esc',
-    LogicalKeyboardKey.space: 'Space',
-    LogicalKeyboardKey.f1: 'F1',
-    LogicalKeyboardKey.f2: 'F2',
-    LogicalKeyboardKey.f3: 'F3',
-    LogicalKeyboardKey.f4: 'F4',
-    LogicalKeyboardKey.f5: 'F5',
-    LogicalKeyboardKey.f6: 'F6',
-    LogicalKeyboardKey.f7: 'F7',
-    LogicalKeyboardKey.f8: 'F8',
-    LogicalKeyboardKey.f9: 'F9',
-    LogicalKeyboardKey.f10: 'F10',
-    LogicalKeyboardKey.f11: 'F11',
-    LogicalKeyboardKey.f12: 'F12',
-    LogicalKeyboardKey.delete: 'Del',
-    LogicalKeyboardKey.backspace: 'Back',
-    LogicalKeyboardKey.enter: 'Enter',
-    LogicalKeyboardKey.tab: 'Tab',
-    LogicalKeyboardKey.home: 'Home',
-    LogicalKeyboardKey.end: 'End',
-    LogicalKeyboardKey.pageUp: 'PageUp',
-    LogicalKeyboardKey.pageDown: 'PageDown',
-    LogicalKeyboardKey.insert: 'Ins',
-  };
-
   @override
   Widget build(BuildContext context) {
     final state = context.watch<SettingsState>();
@@ -86,7 +57,11 @@ class _ShortcutItem extends StatelessWidget {
             message: '与「${conflicts.join('、')}」冲突',
             child: Padding(
               padding: const EdgeInsets.only(right: 4),
-              child: Icon(Icons.warning_amber_rounded, size: 18, color: Colors.orange.shade700),
+              child: Icon(
+                Icons.warning_amber_rounded,
+                size: 18,
+                color: Colors.orange.shade700,
+              ),
             ),
           ),
         if (isCustom)
@@ -96,7 +71,11 @@ class _ShortcutItem extends StatelessWidget {
               padding: const EdgeInsets.only(right: 8),
               child: MouseRegion(
                 cursor: SystemMouseCursors.click,
-                child: Icon(Icons.restart_alt, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                child: Icon(
+                  Icons.restart_alt,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           ),
@@ -116,14 +95,7 @@ class _ShortcutItem extends StatelessWidget {
     );
   }
 
-  String _toKeyLabel(LogicalKeyboardKey key) {
-    final known = _keyLabels[key];
-    if (known != null) return known;
-    final label = key.debugName;
-    if (label != null && label.startsWith('Digit ')) return label.substring(6);
-    if (label != null && label.startsWith('Key ')) return label.substring(4);
-    return label ?? '?';
-  }
+  String _toKeyLabel(LogicalKeyboardKey key) => keyToLabel(key);
 }
 
 class _KeyBadge extends StatelessWidget {
@@ -174,7 +146,9 @@ class _RebindDialogState extends State<_RebindDialog> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _focusNode.requestFocus());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _focusNode.requestFocus(),
+    );
   }
 
   @override

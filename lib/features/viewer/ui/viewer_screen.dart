@@ -5,11 +5,13 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/fullscreen.dart';
+import '../../../core/utils/key_labels.dart';
 import '../providers/viewer_state.dart';
 import '../../menu/models/menu_action.dart';
 import '../../menu/ui/menu_bar.dart';
 import '../../settings/providers/settings_state.dart';
 import '../../settings/ui/settings_screen.dart';
+import 'widgets/floating_fullscreen_hint.dart';
 import 'widgets/image_canvas.dart';
 import 'widgets/zoom_indicator.dart';
 import '../../../services/file_service.dart';
@@ -253,30 +255,41 @@ class _ViewerScreenState extends State<ViewerScreen>
               }
               final canvas = _buildCanvas(state);
               return Scaffold(
-                body: Column(
+                body: Stack(
                   children: [
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.topCenter,
-                      child: fs
-                          ? const SizedBox.shrink()
-                          : AppMenuBar(
-                              hasImage: state.hasImage,
-                              hasPrev: state.currentIndex > 0,
-                              hasNext:
-                                  state.currentIndex < state.totalCount - 1,
-                              fileName: state.hasImage
-                                  ? state.currentName
-                                  : null,
-                              onOpenFile: _openFile,
-                              onPrev: () => state.previousFile(),
-                              onNext: () => state.nextFile(),
-                              onAction: (action) =>
-                                  _handleMenuAction(action, state),
-                            ),
+                    Column(
+                      children: [
+                        AnimatedSize(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOutCubic,
+                          alignment: Alignment.topCenter,
+                          child: fs
+                              ? const SizedBox.shrink()
+                              : AppMenuBar(
+                                  hasImage: state.hasImage,
+                                  hasPrev: state.currentIndex > 0,
+                                  hasNext:
+                                      state.currentIndex < state.totalCount - 1,
+                                  fileName: state.hasImage
+                                      ? state.currentName
+                                      : null,
+                                  onOpenFile: _openFile,
+                                  onPrev: () => state.previousFile(),
+                                  onNext: () => state.nextFile(),
+                                  onAction: (action) =>
+                                      _handleMenuAction(action, state),
+                                ),
+                        ),
+                        Expanded(child: canvas),
+                      ],
                     ),
-                    Expanded(child: canvas),
+                    Align(
+                      alignment: Alignment.topCenter,
+                      child: FloatingFullscreenHint(
+                        visible: fs,
+                        hintText: _buildFullscreenHintText(context),
+                      ),
+                    ),
                   ],
                 ),
                 bottomNavigationBar: AnimatedSize(
@@ -295,6 +308,13 @@ class _ViewerScreenState extends State<ViewerScreen>
         },
       ),
     );
+  }
+
+  String _buildFullscreenHintText(BuildContext context) {
+    final settings = context.read<SettingsState>();
+    final toggleKey = keyToLabel(settings.getShortcutKey('toggle_fullscreen'));
+    final exitKey = keyToLabel(settings.getShortcutKey('exit_fullscreen'));
+    return '按 $toggleKey 或 $exitKey 退出全屏';
   }
 
   void _handleMenuAction(MenuAction action, ViewerState state) {
