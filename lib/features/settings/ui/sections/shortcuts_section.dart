@@ -185,35 +185,39 @@ class _KeyCapState extends State<_KeyCap> {
       ),
     ];
 
-    return Material(
-      color: foreground,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: widget.onTap,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 100),
+      curve: Curves.easeOut,
+      decoration: BoxDecoration(
+        color: foreground,
         borderRadius: BorderRadius.circular(8),
-        splashFactory: InkRipple.splashFactory,
-        splashColor: cs.primary.withValues(alpha: 0.25),
-        highlightColor: Colors.transparent,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 100),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: border, width: 1.0),
-            boxShadow: shadow,
-          ),
-          child: Text(
-            widget.label,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.w600,
-              color: widget.hovered
-                  ? cs.primary
-                  : widget.isCustom
-                  ? cs.tertiary
-                  : cs.onSurface,
+        border: Border.all(color: border, width: 1.0),
+        boxShadow: shadow,
+      ),
+      child: Material(
+        color: Colors.transparent, // 关键：透明背景
+        borderRadius: BorderRadius.circular(8),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(8),
+          splashFactory: InkRipple.splashFactory,
+          splashColor: cs.primary.withValues(alpha: 0.25),
+          highlightColor: Colors.transparent,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            child: Text(
+              widget.label,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w600,
+                color: widget.hovered
+                    ? cs.primary
+                    : widget.isCustom
+                    ? cs.tertiary
+                    : cs.onSurface,
+              ),
             ),
           ),
         ),
@@ -221,7 +225,6 @@ class _KeyCapState extends State<_KeyCap> {
     );
   }
 }
-
 class _RebindDialog extends StatefulWidget {
   final ShortcutAction action;
 
