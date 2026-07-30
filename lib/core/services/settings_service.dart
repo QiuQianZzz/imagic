@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/image_background.dart';
 import '../constants/window_style.dart';
+import '../utils/windows_registry.dart';
 
 class SettingsService {
   static const _keyThemeMode = 'theme_mode';
@@ -31,6 +33,16 @@ class SettingsService {
   ImageBackground imageBackground = ImageBackground.checkerboard;
   Map<String, int> shortcutBindings = {};
 
+  /// 文件关联与自启动开关。
+  ///
+  /// 这两个是系统级状态，**单一数据源是 Windows 注册表**：
+  /// - 读取时实时查注册表（用户可能在 Windows 设置里改过）
+  /// - 写入由 SettingsState 调用 WindowsRegistry 完成
+  /// - 不持久化到 SharedPreferences，避免双源不一致
+  /// 非 Windows 平台保持 false。
+  bool fileAssociation = false;
+  bool autoStart = false;
+
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
     _load();
@@ -52,6 +64,7 @@ class SettingsService {
     windowStyle = WindowStyle.values[_prefs.getInt(_keyWindowStyle) ?? 0];
     imageBackground = _loadImageBackground();
     _loadShortcutBindings();
+    _loadSystemIntegration();
   }
 
   ImageBackground _loadImageBackground() {
@@ -77,6 +90,15 @@ class SettingsService {
     }
   }
 
+  /// 加载系统集成状态：以注册表为唯一数据源。
+  /// 非 Windows 平台直接保持 false。
+  void _loadSystemIntegration() {
+    if (!Platform.isWindows) return;
+    // 实时读注册表，反映用户在 Windows 设置里可能做出的改动
+    fileAssociation = WindowsRegistry.isFileAssociationRegistered();
+    autoStart = WindowsRegistry.isAutoStartEnabled();
+  }
+
   Future<void> save() async {
     await _prefs.setInt(_keyThemeMode, themeMode.index);
     await _prefs.setBool(_keyShowNavBarArrows, showNavBarArrows);
@@ -90,6 +112,8 @@ class SettingsService {
     await _prefs.setInt(_keyWindowStyle, windowStyle.index);
     await _prefs.setString(_keyImageBackground, imageBackground.name);
     await _prefs.setString(_keyShortcutBindings, jsonEncode(shortcutBindings));
+    // 注意：fileAssociation / autoStart 不写入 prefs，
+    // 注册表是唯一数据源，下次启动会重新读取
   }
 
   Future<void> resetToDefaults() async {
@@ -102,6 +126,8 @@ class SettingsService {
     windowStyle = WindowStyle.windows;
     imageBackground = ImageBackground.checkerboard;
     shortcutBindings = {};
+    // 不重置 fileAssociation / autoStart：这两个是系统级状态，
+    // 不应被"重置设置为默认"操作误清除
     await save();
   }
 }

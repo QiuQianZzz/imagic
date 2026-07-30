@@ -5,10 +5,16 @@ import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
 import 'core/services/settings_service.dart';
+import 'core/services/single_instance_handler.dart';
 import 'core/utils/window_controls.dart';
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 单实例：初始化 MethodChannel 监听 C++ 端转发来的外部文件路径
+  // 当用户在已有 Imagic 运行时双击图片文件，第二实例会把路径通过
+  // 命名管道发给主实例，再通过 channel 推到 Dart 端
+  SingleInstanceHandler.instance.init();
 
   await windowManager.ensureInitialized();
   await windowManager.setTitleBarStyle(TitleBarStyle.hidden);

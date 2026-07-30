@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/image_background.dart';
+import '../../../../core/constants/image_formats.dart';
 import '../../../../core/utils/image_background_painter.dart';
 import '../../providers/settings_state.dart';
 import '../widgets/section_card.dart';
@@ -66,6 +69,33 @@ class GeneralSection extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         SectionCard(
+          icon: Icons.integration_instructions,
+          title: '系统集成',
+          children: [
+            if (!Platform.isWindows)
+              _PlaceholderText('仅在 Windows 上提供系统集成选项')
+            else ...[
+              _SwitchTile(
+                label: '文件关联',
+                subtitle: '双击 ${kSupportedExtensions.join('/')} 用 Imagic 打开',
+                value: state.fileAssociation,
+                // TODO(system-integration): setFileAssociation 返回 Future<bool>，
+                // 失败时应用 SnackBar 提示用户。详见 docs/架构设计.md 4.6.3。
+                onChanged: (v) => state.setFileAssociation(v),
+              ),
+              const SizedBox(height: 8),
+              _SwitchTile(
+                label: '开机自启动',
+                subtitle: '系统启动时自动运行 Imagic',
+                value: state.autoStart,
+                // TODO(system-integration): 同上，setAutoStart 失败时需 SnackBar 提示。
+                onChanged: (v) => state.setAutoStart(v),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 8),
+        SectionCard(
           icon: Icons.file_download,
           title: '导出',
           children: [_PlaceholderText('导出功能尚未实现')],
@@ -89,6 +119,7 @@ class GeneralSection extends StatelessWidget {
 
 class _SwitchTile extends StatelessWidget {
   final String label;
+  final String? subtitle;
   final bool value;
   final ValueChanged<bool> onChanged;
 
@@ -96,14 +127,31 @@ class _SwitchTile extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onChanged,
+    this.subtitle,
   });
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Row(
       children: [
         Expanded(
-          child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label, style: Theme.of(context).textTheme.bodyMedium),
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  subtitle!,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
         Switch.adaptive(
           value: value,

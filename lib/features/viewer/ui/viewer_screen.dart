@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/services/single_instance_handler.dart';
 import '../../../core/utils/fullscreen.dart';
 import '../../../core/utils/key_labels.dart';
 import '../providers/viewer_state.dart';
@@ -171,15 +172,27 @@ class _ViewerScreenState extends State<ViewerScreen>
         context.read<ViewerState>().openFile(widget.initialFile!);
       });
     }
+    // 注册单实例回调：当第二实例通过命名管道发来文件路径时，
+    // 走与按钮 / 拖拽相同的统一调度入口 _openFromPath
+    SingleInstanceHandler.instance.setHandler(_handleExternalFile);
   }
 
   @override
   void dispose() {
+    SingleInstanceHandler.instance.clearHandler();
     _focusNode.dispose();
     windowManager.removeListener(this);
     _zoomAnimController.dispose();
     _transformController.dispose();
     super.dispose();
+  }
+
+  /// 单实例收到外部文件路径时的处理：等 ViewerState 就绪后统一调度。
+  void _handleExternalFile(String path) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _openFromPath(path);
+    });
   }
 
   @override
