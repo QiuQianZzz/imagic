@@ -5,6 +5,7 @@ import '../models/settings_section.dart';
 import 'sections/general_section.dart';
 import 'sections/theme_section.dart';
 import 'sections/window_section.dart';
+import 'sections/shortcuts_section.dart';
 import 'sections/backup_section.dart';
 import 'sections/about_section.dart';
 import 'sections/update_section.dart';
@@ -120,6 +121,8 @@ class _SettingsBodyState extends State<_SettingsBody> {
         return const UpdateSection();
       case SettingsSection.general:
         return const GeneralSection();
+      case SettingsSection.shortcuts:
+        return const ShortcutsSection();
     }
   }
 }

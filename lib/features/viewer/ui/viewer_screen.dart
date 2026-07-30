@@ -8,6 +8,7 @@ import '../../../core/utils/fullscreen.dart';
 import '../providers/viewer_state.dart';
 import '../../menu/models/menu_action.dart';
 import '../../menu/ui/menu_bar.dart';
+import '../../settings/providers/settings_state.dart';
 import '../../settings/ui/settings_screen.dart';
 import 'widgets/image_canvas.dart';
 import 'widgets/zoom_indicator.dart';
@@ -160,8 +161,9 @@ class _ViewerScreenState extends State<ViewerScreen>
       _zoomAnimController,
       _canvasKey,
     );
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => _focusNode.requestFocus());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _focusNode.requestFocus(),
+    );
     if (widget.initialFile != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         context.read<ViewerState>().openFile(widget.initialFile!);
@@ -193,8 +195,7 @@ class _ViewerScreenState extends State<ViewerScreen>
       key: _canvasKey,
       onOpenFile: _openFile,
       transformController: _transformController,
-      onReset: () =>
-          _transformController.animateTo(Matrix4.identity()),
+      onReset: () => _transformController.animateTo(Matrix4.identity()),
       hasPrev: state.currentIndex > 0,
       hasNext: state.currentIndex < state.totalCount - 1,
       onPrev: () => state.previousFile(),
@@ -208,9 +209,26 @@ class _ViewerScreenState extends State<ViewerScreen>
       focusNode: _focusNode,
       autofocus: true,
       onKeyEvent: (node, event) {
-        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.f11) {
-          toggleFullscreen();
-          return KeyEventResult.handled;
+        if (event is KeyDownEvent) {
+          final settings = context.read<SettingsState>();
+          if (event.logicalKey == settings.getShortcutKey('toggle_fullscreen')) {
+            toggleFullscreen();
+            return KeyEventResult.handled;
+          }
+          if (event.logicalKey == settings.getShortcutKey('exit_fullscreen')) {
+            if (fullscreenNotifier.value) toggleFullscreen();
+            return KeyEventResult.handled;
+          }
+          if (event.logicalKey == settings.getShortcutKey('prev_image')) {
+            final state = context.read<ViewerState>();
+            if (state.currentIndex > 0) state.previousFile();
+            return KeyEventResult.handled;
+          }
+          if (event.logicalKey == settings.getShortcutKey('next_image')) {
+            final state = context.read<ViewerState>();
+            if (state.currentIndex < state.totalCount - 1) state.nextFile();
+            return KeyEventResult.handled;
+          }
         }
         return KeyEventResult.ignored;
       },
@@ -218,58 +236,62 @@ class _ViewerScreenState extends State<ViewerScreen>
         valueListenable: fullscreenNotifier,
         builder: (context, fs, _) {
           return Consumer<ViewerState>(
-          builder: (context, state, _) {
-            if (state.errorMessage != null) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(state.errorMessage!),
-                      duration: const Duration(seconds: 3),
-                    ),
-                  );
-                  state.clearError();
-                }
-              });
-            }
-            final canvas = _buildCanvas(state);
-            return Scaffold(
-              body: Column(
-                children: [
-                  AnimatedSize(
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeOutCubic,
-                    alignment: Alignment.topCenter,
-                    child: fs
-                        ? const SizedBox.shrink()
-                        : AppMenuBar(
-                            hasImage: state.hasImage,
-                            hasPrev: state.currentIndex > 0,
-                            hasNext: state.currentIndex < state.totalCount - 1,
-                            fileName: state.hasImage ? state.currentName : null,
-                            onOpenFile: _openFile,
-                            onPrev: () => state.previousFile(),
-                            onNext: () => state.nextFile(),
-                            onAction: (action) => _handleMenuAction(action, state),
-                          ),
-                  ),
-                  Expanded(child: canvas),
-                ],
-              ),
-              bottomNavigationBar: AnimatedSize(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOutCubic,
-                alignment: Alignment.bottomCenter,
-                child: fs
-                    ? const SizedBox.shrink()
-                    : ZoomIndicator(
-                        transformController: _transformController,
+            builder: (context, state, _) {
+              if (state.errorMessage != null) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(state.errorMessage!),
+                        duration: const Duration(seconds: 3),
                       ),
-              ),
-            );
-          },
-        );
-      },
+                    );
+                    state.clearError();
+                  }
+                });
+              }
+              final canvas = _buildCanvas(state);
+              return Scaffold(
+                    body: Column(
+                      children: [
+                        AnimatedSize(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOutCubic,
+                          alignment: Alignment.topCenter,
+                          child: fs
+                              ? const SizedBox.shrink()
+                              : AppMenuBar(
+                                  hasImage: state.hasImage,
+                                  hasPrev: state.currentIndex > 0,
+                                  hasNext:
+                                      state.currentIndex < state.totalCount - 1,
+                                  fileName: state.hasImage
+                                      ? state.currentName
+                                      : null,
+                                  onOpenFile: _openFile,
+                                  onPrev: () => state.previousFile(),
+                                  onNext: () => state.nextFile(),
+                                  onAction: (action) =>
+                                      _handleMenuAction(action, state),
+                                ),
+                        ),
+                        Expanded(child: canvas),
+                      ],
+                    ),
+                    bottomNavigationBar: AnimatedSize(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.bottomCenter,
+                      child: fs
+                          ? const SizedBox.shrink()
+                          : ZoomIndicator(
+                              transformController: _transformController,
+                            ),
+                    ),
+              );
+            },
+          );
+        },
       ),
     );
   }

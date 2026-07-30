@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/constants/window_style.dart';
 import '../../../core/constants/image_background.dart';
 import '../../../core/services/settings_service.dart';
+import '../../../core/shortcuts/shortcut_definitions.dart';
 
 class SettingsState extends ChangeNotifier {
   final SettingsService _service;
 
   SettingsState(this._service);
+
+  Map<String, LogicalKeyboardKey>? _shortcutKeyCache;
 
   ThemeMode get themeMode => _service.themeMode;
   bool get showNavBarArrows => _service.showNavBarArrows;
@@ -80,6 +84,62 @@ class SettingsState extends ChangeNotifier {
 
   Future<void> resetToDefaults() async {
     await _service.resetToDefaults();
+    _invalidateShortcutCache();
     notifyListeners();
+  }
+
+  LogicalKeyboardKey getShortcutKey(String actionId) {
+    _shortcutKeyCache ??= _buildShortcutKeyCache();
+    return _shortcutKeyCache![actionId] ?? LogicalKeyboardKey.escape;
+  }
+
+  Map<String, LogicalKeyboardKey> _buildShortcutKeyCache() {
+    final cache = <String, LogicalKeyboardKey>{};
+    for (final def in shortcutActions) {
+      final custom = _service.shortcutBindings[def.id];
+      if (custom != null) {
+        LogicalKeyboardKey? match;
+        for (final k in LogicalKeyboardKey.knownLogicalKeys) {
+          if (k.keyId == custom) { match = k; break; }
+        }
+        cache[def.id] = match ?? def.defaultKey;
+      } else {
+        cache[def.id] = def.defaultKey;
+      }
+    }
+    return cache;
+  }
+
+  void _invalidateShortcutCache() {
+    _shortcutKeyCache = null;
+  }
+
+  Future<void> setShortcutBinding(String actionId, LogicalKeyboardKey key) async {
+    _service.shortcutBindings[actionId] = key.keyId;
+    await _service.save();
+    _invalidateShortcutCache();
+    notifyListeners();
+  }
+
+  Future<void> resetShortcutBinding(String actionId) async {
+    _service.shortcutBindings.remove(actionId);
+    await _service.save();
+    _invalidateShortcutCache();
+    notifyListeners();
+  }
+
+  bool isShortcutCustom(String actionId) {
+    return _service.shortcutBindings.containsKey(actionId);
+  }
+
+  List<String> findConflicts(String actionId, LogicalKeyboardKey key) {
+    final result = <String>[];
+    for (final def in shortcutActions) {
+      if (def.id == actionId) continue;
+      if (getShortcutKey(def.id) == key) {
+        result.add(def.label);
+      }
+    }
+    return result;
   }
 }

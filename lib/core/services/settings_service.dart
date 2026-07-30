@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -13,6 +15,7 @@ class SettingsService {
   static const _keyCustomColors = 'custom_colors';
   static const _keyWindowStyle = 'window_style';
   static const _keyImageBackground = 'image_background';
+  static const _keyShortcutBindings = 'shortcut_bindings';
 
   static const int defaultSeedColor = 0xFF5B8DEF;
 
@@ -26,6 +29,7 @@ class SettingsService {
   List<int> customSeedColors = [];
   WindowStyle windowStyle = WindowStyle.windows;
   ImageBackground imageBackground = ImageBackground.checkerboard;
+  Map<String, int> shortcutBindings = {};
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
@@ -47,6 +51,7 @@ class SettingsService {
         [];
     windowStyle = WindowStyle.values[_prefs.getInt(_keyWindowStyle) ?? 0];
     imageBackground = _loadImageBackground();
+    _loadShortcutBindings();
   }
 
   ImageBackground _loadImageBackground() {
@@ -61,6 +66,17 @@ class SettingsService {
     return ImageBackground.checkerboard;
   }
 
+  void _loadShortcutBindings() {
+    final raw = _prefs.getString(_keyShortcutBindings);
+    if (raw == null) return;
+    try {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      shortcutBindings = decoded.map((k, v) => MapEntry(k, (v as num).toInt()));
+    } catch (_) {
+      shortcutBindings = {};
+    }
+  }
+
   Future<void> save() async {
     await _prefs.setInt(_keyThemeMode, themeMode.index);
     await _prefs.setBool(_keyShowNavBarArrows, showNavBarArrows);
@@ -73,6 +89,7 @@ class SettingsService {
     );
     await _prefs.setInt(_keyWindowStyle, windowStyle.index);
     await _prefs.setString(_keyImageBackground, imageBackground.name);
+    await _prefs.setString(_keyShortcutBindings, jsonEncode(shortcutBindings));
   }
 
   Future<void> resetToDefaults() async {
@@ -84,6 +101,7 @@ class SettingsService {
     customSeedColors = [];
     windowStyle = WindowStyle.windows;
     imageBackground = ImageBackground.checkerboard;
+    shortcutBindings = {};
     await save();
   }
 }
