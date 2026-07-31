@@ -107,10 +107,13 @@ jobs:
             $prevTag = git tag --sort=-creatordate -l 'v*' |
               Where-Object { $_ -ne "${{ github.ref_name }}" } |
               Select-Object -First 1
+            # 预发行版日志：commit 短哈希 + subject
+            # GitHub Release 渲染 Markdown 时会自动把 7+ 位十六进制 commit SHA
+            # 转为可点击链接（autolinked references），无需手动加 <a> 标签
             if ($prevTag) {
-              $log = git log --pretty=format:"- %s" "$prevTag..HEAD"
+              $log = git log --pretty=format:"- %h %s" "$prevTag..HEAD"
             } else {
-              $log = git log --pretty=format:"- %s"
+              $log = git log --pretty=format:"- %h %s"
             }
             $log = $log -join "`n"
             $notes = "## 预发行版`n`n这是预发行版本，仅供测试，可能存在不稳定因素。`n`n## 自上个标签以来的提交`n`n$log"
