@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/window_style.dart';
 import '../../../core/constants/image_background.dart';
+import '../../../core/models/update_channel.dart';
 import '../../../core/services/settings_service.dart';
 import '../../../core/shortcuts/shortcut_definitions.dart';
 import '../../../core/utils/windows_registry.dart';
@@ -25,6 +26,8 @@ class SettingsState extends ChangeNotifier {
   ImageBackground get imageBackground => _service.imageBackground;
   bool get fileAssociation => _service.fileAssociation;
   bool get autoStart => _service.autoStart;
+  bool get autoCheckUpdates => _service.autoCheckUpdates;
+  UpdateChannel get updateChannel => _service.updateChannel;
 
   /// 设置文件关联开关：同步写注册表 + 持久化。
   /// 非 Windows 平台直接忽略（保持 false）。
@@ -74,6 +77,18 @@ class SettingsState extends ChangeNotifier {
 
   Future<void> setThemeMode(ThemeMode value) async {
     _service.themeMode = value;
+    await _service.save();
+    notifyListeners();
+  }
+
+  Future<void> setAutoCheckUpdates(bool value) async {
+    _service.autoCheckUpdates = value;
+    await _service.save();
+    notifyListeners();
+  }
+
+  Future<void> setUpdateChannel(UpdateChannel value) async {
+    _service.updateChannel = value;
     await _service.save();
     notifyListeners();
   }

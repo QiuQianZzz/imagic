@@ -1,13 +1,18 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
+import 'core/models/update_channel.dart';
 import 'core/services/app_version_service.dart';
 import 'core/services/settings_service.dart';
 import 'core/services/single_instance_handler.dart';
+import 'core/services/update_service.dart';
+import 'core/utils/version.dart';
 import 'core/utils/window_controls.dart';
+import 'features/settings/ui/widgets/update_dialog.dart';
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,5 +39,36 @@ void main(List<String> args) async {
       ? args.first
       : null;
 
-  runApp(ImagicApp(initialFile: initialFile, settings: settings));
+  final navigatorKey = GlobalKey<NavigatorState>();
+  runApp(ImagicApp(
+    initialFile: initialFile,
+    settings: settings,
+    navigatorKey: navigatorKey,
+  ));
+
+  // 启动时按设置自动检查更新；开关关闭时不检查
+  if (settings.autoCheckUpdates) {
+    unawaited(_checkUpdatesAtStartup(navigatorKey, settings.updateChannel));
+  }
+}
+
+/// 启动后延迟片刻再检查更新（等首帧渲染完成、Navigator 可用），
+/// 发现新版本时弹出更新对话框。
+Future<void> _checkUpdatesAtStartup(
+  GlobalKey<NavigatorState> navigatorKey,
+  UpdateChannel channel,
+) async {
+  await Future<void>.delayed(const Duration(milliseconds: 800));
+  final context = navigatorKey.currentContext;
+  if (context == null) return;
+  final updater = UpdateService.instance;
+  final result = await updater.checkForUpdates(
+    channel: channel,
+    current: Version.parse(AppVersionService.instance.version),
+  );
+  if (!context.mounted) return;
+  if (result.status == UpdateCheckStatus.updateAvailable &&
+      result.update != null) {
+    showUpdateDialog(context, result.update!);
+  }
 }

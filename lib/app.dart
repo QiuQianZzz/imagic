@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'core/services/settings_service.dart';
+import 'core/services/update_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/browser/providers/browser_state.dart';
 import 'features/settings/providers/settings_state.dart';
@@ -13,8 +14,14 @@ import 'services/image_codec_service.dart';
 class ImagicApp extends StatelessWidget {
   final String? initialFile;
   final SettingsService settings;
+  final GlobalKey<NavigatorState>? navigatorKey;
 
-  const ImagicApp({super.key, this.initialFile, required this.settings});
+  const ImagicApp({
+    super.key,
+    this.initialFile,
+    required this.settings,
+    this.navigatorKey,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +38,9 @@ class ImagicApp extends StatelessWidget {
         ChangeNotifierProvider<ViewerState>(
           create: (_) => ViewerState(),
         ),
+        ChangeNotifierProvider<UpdateService>.value(
+          value: UpdateService.instance,
+        ),
       ],
       child: Selector<SettingsState, ({ThemeMode themeMode, int seedColor})>(
         selector: (_, state) => (themeMode: state.themeMode, seedColor: state.seedColor),
@@ -39,6 +49,7 @@ class ImagicApp extends StatelessWidget {
             child: MaterialApp(
               title: 'Imagic',
               debugShowCheckedModeBanner: false,
+              navigatorKey: navigatorKey,
               theme: AppTheme.light(snapshot.seedColor),
               darkTheme: AppTheme.dark(snapshot.seedColor),
               themeMode: snapshot.themeMode,

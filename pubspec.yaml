@@ -25,6 +25,8 @@ dependencies:
   win32: ^5.5.0
   ffi: ^2.1.0
   package_info_plus: ^9.0.1
+  http: ^1.6.0
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:

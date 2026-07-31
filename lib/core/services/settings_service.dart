@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/image_background.dart';
 import '../constants/window_style.dart';
+import '../models/update_channel.dart';
 import '../shortcuts/shortcut_definitions.dart';
 import '../utils/windows_registry.dart';
 
@@ -19,6 +20,8 @@ class SettingsService {
   static const _keyWindowStyle = 'window_style';
   static const _keyImageBackground = 'image_background';
   static const _keyShortcutBindings = 'shortcut_bindings';
+  static const _keyAutoCheckUpdates = 'auto_check_updates';
+  static const _keyUpdateChannel = 'update_channel';
 
   static const int defaultSeedColor = 0xFF5B8DEF;
 
@@ -33,6 +36,12 @@ class SettingsService {
   WindowStyle windowStyle = WindowStyle.windows;
   ImageBackground imageBackground = ImageBackground.checkerboard;
   Map<String, ShortcutBinding> shortcutBindings = {};
+
+  /// 启动时自动检查更新，默认开启。
+  bool autoCheckUpdates = true;
+
+  /// 更新检查渠道，默认仅正式版。
+  UpdateChannel updateChannel = UpdateChannel.stable;
 
   /// 文件关联与自启动开关。
   ///
@@ -64,6 +73,9 @@ class SettingsService {
         [];
     windowStyle = WindowStyle.values[_prefs.getInt(_keyWindowStyle) ?? 0];
     imageBackground = _loadImageBackground();
+    autoCheckUpdates = _prefs.getBool(_keyAutoCheckUpdates) ?? true;
+    updateChannel = UpdateChannel.values[
+        _prefs.getInt(_keyUpdateChannel) ?? UpdateChannel.stable.index];
     _loadShortcutBindings();
     _loadSystemIntegration();
   }
@@ -122,6 +134,8 @@ class SettingsService {
     );
     await _prefs.setInt(_keyWindowStyle, windowStyle.index);
     await _prefs.setString(_keyImageBackground, imageBackground.name);
+    await _prefs.setBool(_keyAutoCheckUpdates, autoCheckUpdates);
+    await _prefs.setInt(_keyUpdateChannel, updateChannel.index);
     await _prefs.setString(
       _keyShortcutBindings,
       jsonEncode(shortcutBindings.map((k, v) => MapEntry(k, v.toJson()))),
@@ -140,6 +154,8 @@ class SettingsService {
     windowStyle = WindowStyle.windows;
     imageBackground = ImageBackground.checkerboard;
     shortcutBindings = {};
+    autoCheckUpdates = true;
+    updateChannel = UpdateChannel.stable;
     // 不重置 fileAssociation / autoStart：这两个是系统级状态，
     // 不应被"重置设置为默认"操作误清除
     await save();
