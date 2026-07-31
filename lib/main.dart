@@ -25,6 +25,9 @@ void main(List<String> args) async {
   // 预加载应用版本信息（来自 pubspec，构建时注入 exe 版本资源）
   await AppVersionService.instance.init();
 
+  // 清理上次 exe/msix 更新可能残留的临时目录
+  await UpdateService.cleanupStaleTempDirs();
+
   await windowManager.ensureInitialized();
   await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
   await windowManager.setMinimumSize(const Size(800, 600));

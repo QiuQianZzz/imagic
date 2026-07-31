@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/models/update_channel.dart';
 import '../../../../core/services/app_version_service.dart';
 import '../../../../core/services/update_service.dart';
+import '../../../../core/utils/app_install_type.dart';
 import '../../../../core/utils/version.dart';
 import '../../providers/settings_state.dart';
 import '../widgets/section_card.dart';
@@ -62,7 +63,9 @@ class UpdateSection extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              '更新将下载绿色版安装包，校验 SHA-256 后自动替换文件并重启应用。',
+              AppInstallTypeDetector.detect() == AppInstallType.portable
+                  ? '更新将下载绿色版安装包，校验 SHA-256 后自动替换文件并重启应用。'
+                  : '更新将下载安装程序，校验 SHA-256 后启动安装向导，由您完成剩余步骤。',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
               ),

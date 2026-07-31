@@ -5,10 +5,12 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:imagic/core/models/update_channel.dart';
+import 'package:imagic/core/models/update_info.dart';
 import 'package:imagic/core/services/update_service.dart';
+import 'package:imagic/core/utils/app_install_type.dart';
 import 'package:imagic/core/utils/version.dart';
 
-Map<String, dynamic> _zipAsset(String name, {String digest = 'sha256:abc123'}) => {
+Map<String, dynamic> _asset(String name, {String digest = 'sha256:abc123'}) => {
       'name': name,
       'size': 100,
       'digest': digest,
@@ -18,7 +20,7 @@ Map<String, dynamic> _zipAsset(String name, {String digest = 'sha256:abc123'}) =
 
 Map<String, dynamic> _release(
   String tag, {
-  String? asset,
+  List<String>? assets,
   bool draft = false,
   String body = 'notes',
 }) =>
@@ -27,10 +29,15 @@ Map<String, dynamic> _release(
       'name': '[Release] $tag',
       'body': body,
       'draft': draft,
-      'assets': asset == null ? [] : [_zipAsset(asset)],
+      'assets': assets == null
+          ? []
+          : assets.map((n) => _asset(n)).toList(),
     };
 
-UpdateService _serviceWith(List<Map<String, dynamic>> releases) {
+UpdateService _serviceWith(
+  List<Map<String, dynamic>> releases, {
+  AppInstallType installType = AppInstallType.portable,
+}) {
   final client = MockClient((request) async {
     expect(request.url.host, 'api.github.com');
     return http.Response(
@@ -39,16 +46,16 @@ UpdateService _serviceWith(List<Map<String, dynamic>> releases) {
       headers: {'content-type': 'application/json; charset=utf-8'},
     );
   });
-  return UpdateService(client: client);
+  return UpdateService(client: client, installType: installType);
 }
 
 void main() {
   final releases = [
-    _release('v0.1.0', asset: 'imagic-0.1.0-windows.zip'),
-    _release('v0.1.0-beta.2', asset: 'imagic-0.1.0-beta.2-windows.zip'),
-    _release('v0.2.0', asset: 'imagic-0.2.0-windows.zip'),
-    _release('v0.2.0-rc.1', asset: 'imagic-0.2.0-rc.1-windows.zip'),
-    _release('v1.0.0', asset: 'imagic-1.0.0-windows.zip', draft: true),
+    _release('v0.1.0', assets: ['imagic-0.1.0-windows.zip']),
+    _release('v0.1.0-beta.2', assets: ['imagic-0.1.0-beta.2-windows.zip']),
+    _release('v0.2.0', assets: ['imagic-0.2.0-windows.zip']),
+    _release('v0.2.0-rc.1', assets: ['imagic-0.2.0-rc.1-windows.zip']),
+    _release('v1.0.0', assets: ['imagic-1.0.0-windows.zip'], draft: true),
     _release('v0.3.0'),
   ];
 
@@ -110,7 +117,7 @@ void main() {
   });
 
   test('digest sha256 prefix is stripped', () async {
-    final service = _serviceWith([_release('v0.2.0', asset: 'imagic-0.2.0-windows.zip')]);
+    final service = _serviceWith([_release('v0.2.0', assets: ['imagic-0.2.0-windows.zip'])]);
     final result = await service.checkForUpdates(
       channel: UpdateChannel.stable,
       current: Version.parse('0.1.0'),
@@ -137,5 +144,121 @@ void main() {
       current: Version.parse('0.1.0'),
     );
     expect(result.status, UpdateCheckStatus.error);
+  });
+
+  group('asset type detection', () {
+    test('portable prefers zip over exe and msix', () async {
+      final service = _serviceWith(
+        [_release('v0.2.0', assets: [
+          'imagic-0.2.0-setup.exe',
+          'imagic-0.2.0-windows.zip',
+          'imagic-0.2.0.msix',
+        ])],
+        installType: AppInstallType.portable,
+      );
+      final result = await service.checkForUpdates(
+        channel: UpdateChannel.stable,
+        current: Version.parse('0.1.0'),
+      );
+      expect(result.update!.assetType, AssetType.zip);
+    });
+
+    test('installer prefers exe over zip and msix', () async {
+      final service = _serviceWith(
+        [_release('v0.2.0', assets: [
+          'imagic-0.2.0-windows.zip',
+          'imagic-0.2.0-setup.exe',
+          'imagic-0.2.0.msix',
+        ])],
+        installType: AppInstallType.installer,
+      );
+      final result = await service.checkForUpdates(
+        channel: UpdateChannel.stable,
+        current: Version.parse('0.1.0'),
+      );
+      expect(result.update!.assetType, AssetType.exe);
+    });
+
+    test('msix install type only picks msix asset', () async {
+      final service = _serviceWith(
+        [_release('v0.2.0', assets: [
+          'imagic-0.2.0-windows.zip',
+          'imagic-0.2.0-setup.exe',
+          'imagic-0.2.0.msix',
+        ])],
+        installType: AppInstallType.msix,
+      );
+      final result = await service.checkForUpdates(
+        channel: UpdateChannel.stable,
+        current: Version.parse('0.1.0'),
+      );
+      expect(result.update!.assetType, AssetType.msix);
+    });
+
+    test('portable falls back to exe when no zip', () async {
+      final service = _serviceWith(
+        [_release('v0.2.0', assets: [
+          'imagic-0.2.0-setup.exe',
+          'imagic-0.2.0.msix',
+        ])],
+        installType: AppInstallType.portable,
+      );
+      final result = await service.checkForUpdates(
+        channel: UpdateChannel.stable,
+        current: Version.parse('0.1.0'),
+      );
+      expect(result.update!.assetType, AssetType.exe);
+    });
+
+    test('installer falls back to msix when no exe', () async {
+      final service = _serviceWith(
+        [_release('v0.2.0', assets: [
+          'imagic-0.2.0-windows.zip',
+          'imagic-0.2.0.msix',
+        ])],
+        installType: AppInstallType.installer,
+      );
+      final result = await service.checkForUpdates(
+        channel: UpdateChannel.stable,
+        current: Version.parse('0.1.0'),
+      );
+      expect(result.update!.assetType, AssetType.msix);
+    });
+
+    test('msix bundle extension is matched', () async {
+      final service = _serviceWith(
+        [_release('v0.2.0', assets: ['imagic-0.2.0.msixbundle'])],
+        installType: AppInstallType.msix,
+      );
+      final result = await service.checkForUpdates(
+        channel: UpdateChannel.stable,
+        current: Version.parse('0.1.0'),
+      );
+      expect(result.update!.assetType, AssetType.msix);
+    });
+
+    test('exe with installer keyword is matched', () async {
+      final service = _serviceWith(
+        [_release('v0.2.0', assets: ['Imagic-0.2.0-installer.exe'])],
+        installType: AppInstallType.installer,
+      );
+      final result = await service.checkForUpdates(
+        channel: UpdateChannel.stable,
+        current: Version.parse('0.1.0'),
+      );
+      expect(result.update!.assetType, AssetType.exe);
+    });
+
+    test('release without matching asset is skipped', () async {
+      final service = _serviceWith(
+        [_release('v0.2.0', assets: ['imagic-0.2.0-linux.tar.gz'])],
+        installType: AppInstallType.portable,
+      );
+      final result = await service.checkForUpdates(
+        channel: UpdateChannel.stable,
+        current: Version.parse('0.1.0'),
+      );
+      expect(result.status, UpdateCheckStatus.upToDate);
+    });
   });
 }

@@ -25,14 +25,7 @@ enum UpdateCheckStatus {
 }
 
 /// 更新安装所处的阶段。
-enum UpdateStage {
-  idle,
-  downloading,
-  verifying,
-  installing,
-  done,
-  error,
-}
+enum UpdateStage { idle, downloading, verifying, installing, done, error }
 
 /// 一次更新检查的结果。
 class UpdateCheckResult {
@@ -61,10 +54,10 @@ class UpdateService extends ChangeNotifier {
     String? repoOwner,
     String? repoName,
     AppInstallType? installType,
-  })  : _client = client ?? http.Client(),
-        _repoOwner = repoOwner ?? _defaultOwner,
-        _repoName = repoName ?? _defaultName,
-        _installType = installType ?? AppInstallTypeDetector.detect();
+  }) : _client = client ?? http.Client(),
+       _repoOwner = repoOwner ?? _defaultOwner,
+       _repoName = repoName ?? _defaultName,
+       _installType = installType ?? AppInstallTypeDetector.detect();
 
   static const String _defaultOwner = 'QiuQianZzz';
   static const String _defaultName = 'imagic';
@@ -115,10 +108,13 @@ class UpdateService extends ChangeNotifier {
         {'per_page': '30'},
       );
       final resp = await _client
-          .get(uri, headers: const {
-            'User-Agent': 'imagic-updater',
-            'Accept': 'application/vnd.github+json',
-          })
+          .get(
+            uri,
+            headers: const {
+              'User-Agent': 'imagic-updater',
+              'Accept': 'application/vnd.github+json',
+            },
+          )
           .timeout(const Duration(seconds: 15));
       if (resp.statusCode != 200) {
         final message = (resp.statusCode == 403 || resp.statusCode == 429)
@@ -187,8 +183,9 @@ class UpdateService extends ChangeNotifier {
   }
 
   /// 从资产的 `digest`（如 `sha256:xxxx`）中提取期望哈希。
-  static String _extractSha256(String digest) =>
-      digest.startsWith('sha256:') ? digest.substring('sha256:'.length) : digest;
+  static String _extractSha256(String digest) => digest.startsWith('sha256:')
+      ? digest.substring('sha256:'.length)
+      : digest;
 
   /// 在 Release 资产中查找 Windows 安装包，优先级由当前安装形式决定：
   /// - MSIX → 仅 msix（沙盒环境无法用 zip/exe 替换）
@@ -200,7 +197,11 @@ class UpdateService extends ChangeNotifier {
     if (assets is! List) return null;
     final priorities = switch (_installType) {
       AppInstallType.msix => [AssetType.msix],
-      AppInstallType.installer => [AssetType.exe, AssetType.msix, AssetType.zip],
+      AppInstallType.installer => [
+        AssetType.exe,
+        AssetType.msix,
+        AssetType.zip,
+      ],
       AppInstallType.portable => [AssetType.zip, AssetType.exe, AssetType.msix],
     };
     for (final type in priorities) {
@@ -268,7 +269,7 @@ class UpdateService extends ChangeNotifier {
     _downloadProgress = 0;
     _installError = null;
     notifyListeners();
-    await _cleanupStaleTempDirs();
+    await cleanupStaleTempDirs();
     final tempDir = await Directory.systemTemp.createTemp('imagic_update_');
     try {
       final assetPath = p.join(tempDir.path, update.assetName);
@@ -303,12 +304,16 @@ class UpdateService extends ChangeNotifier {
         );
       } else {
         // exe/msix：启动安装程序，由用户接管
+        // 第二个参数 '' 是 start 命令的窗口标题占位符，不可省略：
+        // 若省略，start 会将 assetPath 误判为窗口标题而不启动程序
         await Process.start(
           'cmd',
           ['/c', 'start', '', assetPath],
           runInShell: false,
           mode: ProcessStartMode.detachedWithStdio,
         );
+        // 临时目录由新版本启动时通过 cleanupStaleTempDirs() 清理，
+        // 因安装过程中旧进程会被关闭，无法可靠地在此延迟清理
       }
       _stage = UpdateStage.done;
       notifyListeners();
@@ -330,8 +335,11 @@ class UpdateService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 清理上次残留的更新临时目录（失败 / 脚本未清完的情况）。
-  Future<void> _cleanupStaleTempDirs() async {
+  /// 清理上次残留的更新临时目录（失败 / 安装程序未清完的情况）。
+  ///
+  /// 在应用启动时调用，确保新版本启动后能清理由旧版本 exe/msix
+  /// 安装流程遗留的临时文件。
+  static Future<void> cleanupStaleTempDirs() async {
     try {
       await for (final entity in Directory.systemTemp.list()) {
         if (entity is Directory &&
@@ -353,9 +361,7 @@ class UpdateService extends ChangeNotifier {
   Future<void> downloadToFile(UpdateInfo update, String destPath) async {
     _downloadProgress = 0;
     final req = http.Request('GET', Uri.parse(update.assetUrl));
-    final resp = await _client
-        .send(req)
-        .timeout(const Duration(seconds: 30));
+    final resp = await _client.send(req).timeout(const Duration(seconds: 30));
     if (resp.statusCode != 200) {
       throw UpdateDownloadException('下载失败：HTTP ${resp.statusCode}');
     }
@@ -363,7 +369,9 @@ class UpdateService extends ChangeNotifier {
     final sink = File(destPath).openWrite();
     var received = 0;
     try {
-      await for (final chunk in resp.stream.timeout(const Duration(minutes: 2))) {
+      await for (final chunk in resp.stream.timeout(
+        const Duration(minutes: 2),
+      )) {
         sink.add(chunk);
         received += chunk.length;
         if (total > 0) {
@@ -388,14 +396,18 @@ class UpdateService extends ChangeNotifier {
   /// 生成更新批处理脚本：等待主进程退出 → 结束残留进程 → 解压覆盖 →
   /// 重启 → 清理临时文件。
   @visibleForTesting
-  Future<String> writeInstallerScript(String assetPath, String tempDirPath) async {
+  Future<String> writeInstallerScript(
+    String assetPath,
+    String tempDirPath,
+  ) async {
     final appDir = Directory(Platform.resolvedExecutable).parent.path;
     final exeName = p.basename(Platform.resolvedExecutable);
     // p.join 规范化分隔符，避免 appDir 为驱动器根目录（如 D:\）时出现双反斜杠
     final exePath = p.join(appDir, exeName);
     final extracted = p.join(tempDirPath, 'extracted');
     final scriptPath = p.join(tempDirPath, 'update.bat');
-    final content = '''
+    final content =
+        '''
 @echo off
 setlocal
 set "ZIP=$assetPath"
