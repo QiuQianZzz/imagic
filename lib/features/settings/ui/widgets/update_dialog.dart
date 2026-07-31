@@ -45,32 +45,142 @@ class UpdateDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     final updater = context.watch<UpdateService>();
+    final busy = _busy(updater);
+    final currentVer = AppVersionService.instance.version.toString();
+    final newVer = update.version.toString();
+    final isZip = update.assetType == AssetType.zip;
+
     return AlertDialog(
-      title: Text('发现新版本 ${update.version}'),
+      title: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.system_update_alt,
+            color: cs.primary,
+            size: 28,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '发现新版本',
+                  style: tt.titleLarge,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  newVer,
+                  style: tt.headlineSmall?.copyWith(
+                    color: cs.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
       content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480),
+        constraints: const BoxConstraints(maxWidth: 560),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '当前版本 ${AppVersionService.instance.version} → 新版本 ${update.version}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: cs.onSurfaceVariant,
+            // 版本对比：当前 → 新版本
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              decoration: BoxDecoration(
+                color: cs.primaryContainer.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '当前版本',
+                          style: tt.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          currentVer,
+                          style: tt.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.trending_flat_rounded,
+                    color: cs.primary,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '新版本',
+                          style: tt.labelSmall?.copyWith(
+                            color: cs.primary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          newVer,
+                          style: tt.titleMedium?.copyWith(
+                            color: cs.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
             if (update.body.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text('更新日志', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 4),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Icon(
+                    Icons.article_outlined,
+                    size: 18,
+                    color: cs.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '更新日志',
+                    style: tt.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
               Container(
-                constraints: const BoxConstraints(maxHeight: 240),
+                constraints: const BoxConstraints(maxHeight: 260),
                 width: double.infinity,
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: cs.outlineVariant.withValues(alpha: 0.5),
                   ),
@@ -82,30 +192,48 @@ class UpdateDialog extends StatelessWidget {
                     styleSheet: MarkdownStyleSheet.fromTheme(
                       Theme.of(context),
                     ).copyWith(
-                      p: Theme.of(context).textTheme.bodySmall,
-                      h1: Theme.of(context).textTheme.titleMedium,
-                      h2: Theme.of(context).textTheme.titleMedium,
-                      h3: Theme.of(context).textTheme.titleSmall,
-                      h4: Theme.of(context).textTheme.titleSmall,
-                      h5: Theme.of(context).textTheme.titleSmall,
-                      h6: Theme.of(context).textTheme.titleSmall,
-                      listBullet: Theme.of(context).textTheme.bodySmall,
+                      p: tt.bodyMedium,
+                      // 更新日志层级浅，h1~h3 加粗加大，h4~h6 加粗但字号小
+                      h1: tt.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                      h2: tt.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                      h3: tt.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                      h4: tt.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                      h5: tt.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                      h6: tt.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                      listBullet: tt.bodyMedium,
+                      blockquoteDecoration: BoxDecoration(
+                        border: Border(
+                          left: BorderSide(color: cs.primary, width: 3),
+                        ),
+                        color: cs.surfaceContainerHighest,
+                      ),
                       codeblockDecoration: BoxDecoration(
                         color: cs.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: cs.outlineVariant),
                       ),
                       code: TextStyle(
                         fontFamily: 'monospace',
-                        fontSize: 12,
+                        fontSize: 13,
                         color: cs.primary,
                       ),
                       a: TextStyle(color: cs.primary),
                     ),
                     onTapLink: (text, href, title) {
                       if (href == null) return;
-                      // Windows: 用系统默认浏览器打开链接
                       if (Platform.isWindows) {
-                        // ignore: avoid_print
                         Process.start('cmd', ['/c', 'start', '', href]);
                       }
                     },
@@ -113,25 +241,41 @@ class UpdateDialog extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             ..._status(context, updater),
           ],
         ),
       ),
+      actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: [
-        TextButton(
-          onPressed: _busy(updater)
+        TextButton.icon(
+          onPressed: busy
               ? null
               : () => Navigator.of(context).pop(),
-          child: Text(updater.stage == UpdateStage.error ? '关闭' : '稍后'),
+          icon: Icon(updater.stage == UpdateStage.error ? Icons.close : Icons.schedule),
+          label: Text(updater.stage == UpdateStage.error ? '关闭' : '稍后'),
         ),
-        FilledButton(
-          onPressed: _busy(updater)
+        FilledButton.icon(
+          onPressed: busy
               ? null
               : () => _download(context, updater),
-          child: Text(update.assetType == AssetType.zip
-              ? '下载并更新'
-              : '下载并安装'),
+          icon: busy
+              ? SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: cs.onPrimary,
+                  ),
+                )
+              : Icon(isZip ? Icons.download_for_offline : Icons.install_desktop),
+          label: Text(busy
+              ? (updater.stage == UpdateStage.downloading
+                  ? '下载中'
+                  : updater.stage == UpdateStage.verifying
+                  ? '校验中'
+                  : '准备中')
+              : (isZip ? '下载并更新' : '下载并安装')),
         ),
       ],
     );
@@ -153,46 +297,121 @@ class UpdateDialog extends StatelessWidget {
 
   List<Widget> _status(BuildContext context, UpdateService updater) {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     switch (updater.stage) {
       case UpdateStage.downloading:
         final progress = updater.downloadProgress;
+        final pct = progress == null ? null : (progress * 100).round();
         return [
           Row(
             children: [
-              Expanded(
-                child: LinearProgressIndicator(value: progress),
+              Icon(
+                Icons.downloading_rounded,
+                size: 16,
+                color: cs.primary,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Text(
-                progress == null
-                    ? '...'
-                    : '${(progress * 100).round()}%',
-                style: Theme.of(context).textTheme.labelMedium,
+                '正在下载${pct == null ? '' : ' $pct%'}',
+                style: tt.labelLarge?.copyWith(
+                  color: cs.primary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: progress == null
+                ? const LinearProgressIndicator(minHeight: 8)
+                : LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 8,
+                  ),
           ),
         ];
       case UpdateStage.verifying:
         return [
-          Text('正在校验文件完整性（SHA-256）...',
-              style: Theme.of(context).textTheme.bodySmall),
+          Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: cs.tertiary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '正在校验文件完整性（SHA-256）...',
+                  style: tt.bodyMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ];
       case UpdateStage.installing:
         return [
-          Text(
-            update.assetType == AssetType.zip
-                ? '正在准备更新，应用即将重启...'
-                : '正在启动安装程序...',
-            style: Theme.of(context).textTheme.bodySmall,
+          Row(
+            children: [
+              Icon(
+                Icons.task_alt_rounded,
+                size: 18,
+                color: cs.tertiary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  update.assetType == AssetType.zip
+                      ? '正在准备更新，应用即将重启...'
+                      : '正在启动安装程序...',
+                  style: tt.bodyMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
           ),
         ];
       case UpdateStage.error:
         return [
-          Text(
-            updater.installError ?? '更新失败',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: cs.error),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
+            decoration: BoxDecoration(
+              color: cs.errorContainer.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: cs.error.withValues(alpha: 0.4),
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 18,
+                  color: cs.error,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    updater.installError ?? '更新失败',
+                    style: tt.bodyMedium?.copyWith(
+                      color: cs.onErrorContainer,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ];
       case UpdateStage.idle:
