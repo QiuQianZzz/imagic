@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/services/app_version_service.dart';
 import '../../../core/services/single_instance_handler.dart';
 import '../../../core/shortcuts/shortcut_definitions.dart';
 import '../../../core/utils/fullscreen.dart';
@@ -507,17 +508,18 @@ class _ViewerScreenState extends State<ViewerScreen>
   }
 
   void _showAbout() {
+    final version = AppVersionService.instance.version;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('关于 Imagic'),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Imagic 图片查看工具'),
-            SizedBox(height: 8),
-            Text('版本 1.0.0'),
+            const Text('Imagic 图片查看工具'),
+            const SizedBox(height: 8),
+            Text('版本 $version'),
           ],
         ),
         actions: [

@@ -80,7 +80,7 @@ msix_config:
   publisher_display_name: QiuQianZzz
   identity_name: QiuQianZzz.Imagic
   publisher: CN=QiuQianZzz
-  msix_version: 1.0.0.0
+  msix_version: 0.1.0.0
   logo_path: windows/runner/resources/app_icon.ico
   capabilities: runFullTrust
   store: false

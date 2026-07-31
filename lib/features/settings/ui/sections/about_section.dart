@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/services/app_version_service.dart';
 import '../widgets/section_card.dart';
 
 class AboutSection extends StatelessWidget {
@@ -28,7 +29,7 @@ class AboutSection extends StatelessWidget {
               const SizedBox(height: 16),
               Text('Imagic', style: theme.textTheme.headlineSmall),
               const SizedBox(height: 4),
-              Text('版本 1.0.0', style: theme.textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+              Text('版本 ${AppVersionService.instance.version}', style: theme.textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
               const SizedBox(height: 32),
             ],
           ),

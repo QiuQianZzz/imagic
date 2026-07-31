@@ -82,4 +82,5 @@ lib/
 | 文件选择 | file_picker 8.1 |
 | 拖拽打开 | desktop_drop 0.5 |
 | 注册表操作 | win32 + ffi |
+| 版本信息 | package_info_plus |
 | 打包分发 | msix 3.16（dev） |
