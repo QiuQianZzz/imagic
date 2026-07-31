@@ -84,7 +84,7 @@ jobs:
         run: |
           $installer = "inno-setup7-x64.exe"
           Invoke-WebRequest -Uri "https://github.com/jrsoftware/issrc/releases/download/is-7_0_2/innosetup-7.0.2-x64.exe" -OutFile $installer
-          .\$installer /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
+          & .\$installer /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
           Remove-Item $installer
 
       - name: Build Inno Setup installer
@@ -116,7 +116,7 @@ jobs:
           } else {
             $changelog = Get-Content CHANGELOG.md -Raw
             $escaped = [regex]::Escape($version)
-            $pattern = "(?ms)^## \[$escaped\].*?(?=^## \[|`z)"
+            $pattern = "(?ms)^## \[$escaped\].*?(?=^## \[|`\z)"
             $match = [regex]::Match($changelog, $pattern)
             if ($match.Success) {
               $notes = $match.Value.Trim()
