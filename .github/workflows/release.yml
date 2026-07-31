@@ -99,7 +99,7 @@ jobs:
 
       - name: Generate release notes
         id: notes
-        shell: powershell
+        shell: pwsh
         run: |
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
           $version = "${{ steps.tag.outputs.version }}"
