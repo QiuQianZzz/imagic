@@ -1,0 +1,137 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '要发布的版本号（不含 v 前缀），如 1.1.0-beta.1'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Parse tag
+        id: tag
+        shell: powershell
+        run: |
+          $version = "${{ github.event.inputs.version }}"
+          if (-not $version) { $version = "${{ github.ref_name }}" -replace '^v', '' }
+          $isPrerelease = $version -match '(-beta|-rc|-alpha)'
+          $cleanVersion = $version -replace '[-+].*$', ''
+          $msixVersion = "$cleanVersion.0"
+          "version=$version" | Out-File -Append -FilePath $env:GITHUB_OUTPUT
+          "is_prerelease=$isPrerelease" | Out-File -Append -FilePath $env:GITHUB_OUTPUT
+          "clean_version=$cleanVersion" | Out-File -Append -FilePath $env:GITHUB_OUTPUT
+          "msix_version=$msixVersion" | Out-File -Append -FilePath $env:GITHUB_OUTPUT
+
+      - name: Sync pubspec version
+        shell: powershell
+        run: |
+          (Get-Content pubspec.yaml) -replace '^version: .*', "version: ${{ steps.tag.outputs.version }}+1" |
+            Set-Content pubspec.yaml
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.2
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Windows Release
+        run: flutter build windows --release
+
+      - name: Package portable zip
+        shell: powershell
+        run: |
+          $zip = "imagic-${{ steps.tag.outputs.version }}-windows.zip"
+          if (Test-Path $zip) { Remove-Item $zip }
+          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath $zip
+
+      - name: Build MSIX package
+        shell: powershell
+        env:
+          MSIX_CERT_B64: ${{ secrets.MSIX_CERT }}
+          MSIX_CERT_PASSWORD: ${{ secrets.MSIX_CERT_PASSWORD }}
+        run: |
+          $msixArgs = @("--version", "${{ steps.tag.outputs.msix_version }}", "-o", "build/windows/msix", "-n", "imagic-${{ steps.tag.outputs.version }}", "--build-windows", "false")
+          if ($env:MSIX_CERT_B64) {
+            $certFile = "build/windows/signing.pfx"
+            [IO.File]::WriteAllBytes($certFile, [Convert]::FromBase64String($env:MSIX_CERT_B64))
+            $msixArgs += @("-c", $certFile, "-p", $env:MSIX_CERT_PASSWORD)
+            Write-Output "Signing MSIX with certificate from secrets"
+          } else {
+            Write-Output "WARNING: MSIX_CERT secret not set, using plugin's auto-generated test certificate"
+          }
+          & flutter pub run msix:create $msixArgs
+
+      - name: Install Inno Setup 7
+        shell: powershell
+        run: |
+          $installer = "inno-setup7-x64.exe"
+          Invoke-WebRequest -Uri "https://github.com/jrsoftware/issrc/releases/download/is-7_0_2/innosetup-7.0.2-x64.exe" -OutFile $installer
+          .\$installer /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
+          Remove-Item $installer
+
+      - name: Build Inno Setup installer
+        shell: powershell
+        run: |
+          $iscc = Get-ChildItem "C:\Program Files*\Inno Setup*\ISCC.exe" -Recurse -ErrorAction SilentlyContinue |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $iscc) { throw "ISCC.exe not found after Inno Setup install" }
+          & $iscc /DMyAppVersion=${{ steps.tag.outputs.clean_version }} `
+              /DMyAppVersionFile=${{ steps.tag.outputs.version }} `
+              windows\packaging\inno_setup.iss
+
+      - name: Generate release notes
+        id: notes
+        shell: powershell
+        run: |
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $version = "${{ steps.tag.outputs.version }}"
+          if ("${{ steps.tag.outputs.is_prerelease }}" -eq "true") {
+            $prevTag = git tag --sort=-creatordate -l 'v*' |
+              Where-Object { $_ -ne "${{ github.ref_name }}" } |
+              Select-Object -First 1
+            if ($prevTag) {
+              $log = git log --pretty=format:"- %s" "$prevTag..HEAD"
+            } else {
+              $log = git log --pretty=format:"- %s"
+            }
+            $notes = "## 预发行版 $version`n`n这是预发行版本，仅供测试，可能存在不稳定因素。`n`n## 自上个标签以来的提交`n`n$log"
+          } else {
+            $changelog = Get-Content CHANGELOG.md -Raw
+            $escaped = [regex]::Escape($version)
+            $pattern = "(?ms)^## \[$escaped\].*?(?=^## \[|`z)"
+            $match = [regex]::Match($changelog, $pattern)
+            if ($match.Success) {
+              $notes = $match.Value.Trim()
+            } else {
+              $notes = "CHANGELOG.md 中未找到版本 [$version] 的条目，请检查 CHANGELOG.md。"
+            }
+          }
+          $notes | Out-File -Encoding utf8 -FilePath notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            imagic-${{ steps.tag.outputs.version }}-windows.zip
+            build/windows/msix/*.msix
+            dist/*.exe
+          body_path: notes.md
+          prerelease: ${{ steps.tag.outputs.is_prerelease == 'true' }}

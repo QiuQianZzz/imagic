@@ -3,7 +3,7 @@ description: "A MD3 Flutter image viewer for Windows."
 publish_to: 'none'
 repository: https://github.com/QiuQianZzz/imagic
 
-version: 1.0.0+1
+version: 0.1.0+1
 
 environment:
   sdk: ^3.9.2

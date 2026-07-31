@@ -13,7 +13,16 @@
 ;   - ChangesAssociations=yes 让安装/卸载后资源管理器自动刷新关联
 
 #define MyAppName "Imagic"
-#define MyAppVersion "1.0.0"
+; 版本号默认对齐 pubspec.yaml；CI 中可通过 iscc 命令行覆盖：
+;   iscc /DMyAppVersion=0.1.0 /DMyAppVersionFile=0.1.0-beta.1 inno_setup.iss
+; MyAppVersion 用于 Windows 版本属性（需 x.y.z 格式），
+; MyAppVersionFile 用于安装包文件名（可含 beta/rc 后缀）。
+#ifndef MyAppVersion
+  #define MyAppVersion "0.1.0"
+#endif
+#ifndef MyAppVersionFile
+  #define MyAppVersionFile "0.1.0"
+#endif
 #define MyAppPublisher "QiuQianZzz"
 #define MyAppExeName "imagic.exe"
 ; Flutter Windows Release 产物目录（相对脚本文件位置）
@@ -41,7 +50,7 @@ PrivilegesRequiredOverridesAllowed=dialog
 
 ; 输出与图标
 OutputDir=..\..\dist
-OutputBaseFilename=Imagic-{#MyAppVersion}-setup
+OutputBaseFilename=Imagic-{#MyAppVersionFile}-setup
 SetupIconFile=..\runner\resources\app_icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 
