@@ -74,10 +74,20 @@ class SettingsService {
     windowStyle = WindowStyle.values[_prefs.getInt(_keyWindowStyle) ?? 0];
     imageBackground = _loadImageBackground();
     autoCheckUpdates = _prefs.getBool(_keyAutoCheckUpdates) ?? true;
-    updateChannel = UpdateChannel.values[
-        _prefs.getInt(_keyUpdateChannel) ?? UpdateChannel.stable.index];
+    updateChannel = _migrateUpdateChannel(_prefs.getInt(_keyUpdateChannel));
     _loadShortcutBindings();
     _loadSystemIntegration();
+  }
+
+  /// 从旧的三档枚举索引迁移到新的两档：
+  /// - old 0 (stable) → new 0 (stable)
+  /// - old 1 (beta)   → new 1 (all)，beta 用户本来就是追更，归到所有版本
+  /// - old 2 (all)    → new 1 (all)
+  /// - null / 越界    → new 0 (stable)
+  static UpdateChannel _migrateUpdateChannel(int? oldIdx) {
+    if (oldIdx == null || oldIdx < 0) return UpdateChannel.stable;
+    if (oldIdx == 0) return UpdateChannel.stable;
+    return UpdateChannel.all;
   }
 
   ImageBackground _loadImageBackground() {

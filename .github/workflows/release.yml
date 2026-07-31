@@ -117,10 +117,11 @@ jobs:
           } else {
             $changelog = Get-Content CHANGELOG.md -Raw
             $escaped = [regex]::Escape($version)
-            $pattern = "(?ms)^## \[$escaped\].*?(?=^## \[|`\z)"
+            # 单引号字符串避免 PowerShell 反引号转义混淆：\z 匹配字符串绝对结尾
+            $pattern = '(?ms)^## \[' + $escaped + '\].*?(?=^## \[|\z)'
             $match = [regex]::Match($changelog, $pattern)
             if ($match.Success) {
-              $notes = $match.Value -replace "(?ms)^## \[$escaped\][^\n]*\n+", ''
+              $notes = $match.Value -replace '(?ms)^## \[' + $escaped + '\][^\n]*\n+', ''
               $notes = $notes.Trim()
             } else {
               $notes = "CHANGELOG.md 中未找到版本 [$version] 的条目，请检查 CHANGELOG.md。"

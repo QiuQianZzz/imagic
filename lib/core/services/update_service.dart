@@ -75,6 +75,7 @@ class UpdateService extends ChangeNotifier {
   UpdateStage _stage = UpdateStage.idle;
   double? _downloadProgress;
   String? _installError;
+  DateTime? _lastCheck;
 
   /// 是否正在检查。
   bool get checking => _checking;
@@ -94,12 +95,25 @@ class UpdateService extends ChangeNotifier {
   /// 检查是否有更新。
   ///
   /// [channel] 决定候选范围；[current] 为当前版本，高于它即视为有更新。
+  /// [force] 为 true 时跳过会话内节流，强制请求 GitHub API。
   Future<UpdateCheckResult> checkForUpdates({
     required UpdateChannel channel,
     required Version current,
+    bool force = false,
   }) async {
+    // 会话内节流：5 分钟内重复检查直接返回上次结果，避免触发 GitHub 限流
+    if (!force &&
+        _lastResult != null &&
+        _lastCheck != null &&
+        DateTime.now().difference(_lastCheck!) < const Duration(minutes: 5)) {
+      return _lastResult!;
+    }
     _checking = true;
     _lastResult = null;
+    // 重置安装状态，避免上次失败的错误信息残留到新一次检查
+    _stage = UpdateStage.idle;
+    _installError = null;
+    _downloadProgress = null;
     notifyListeners();
     try {
       final uri = Uri.https(
@@ -144,13 +158,15 @@ class UpdateService extends ChangeNotifier {
       );
       return _lastResult!;
     } catch (e) {
+      debugPrint('检查更新失败：$e');
       _lastResult = UpdateCheckResult(
         status: UpdateCheckStatus.error,
-        error: '检查更新失败：$e',
+        error: '检查更新失败，请检查网络连接后重试',
       );
       return _lastResult!;
     } finally {
       _checking = false;
+      _lastCheck = DateTime.now();
       notifyListeners();
     }
   }
@@ -168,9 +184,8 @@ class UpdateService extends ChangeNotifier {
       } on FormatException {
         continue;
       }
-      if (version.isPrerelease) {
-        if (channel == UpdateChannel.stable) continue;
-      } else if (channel == UpdateChannel.beta) {
+      if (version.isPrerelease && channel == UpdateChannel.stable) {
+        // 正式版渠道：跳过预发行版
         continue;
       }
       final found = _findWindowsAsset(map['assets']);
@@ -273,7 +288,7 @@ class UpdateService extends ChangeNotifier {
     final tempDir = await Directory.systemTemp.createTemp('imagic_update_');
     try {
       final assetPath = p.join(tempDir.path, update.assetName);
-      await downloadToFile(update, assetPath);
+      await _downloadWithRetry(update, assetPath);
 
       _stage = UpdateStage.verifying;
       notifyListeners();
@@ -281,10 +296,12 @@ class UpdateService extends ChangeNotifier {
       final expected = update.assetSha256.toLowerCase();
       if (expected.isEmpty) {
         _fail('未获取到官方 SHA-256 校验值，为安全起见已中止更新');
+        await tempDir.delete(recursive: true);
         return UpdateInstallResult(success: false, error: _installError);
       }
       if (actual != expected) {
         _fail('SHA-256 校验失败，下载文件可能被篡改或损坏');
+        await tempDir.delete(recursive: true);
         return UpdateInstallResult(success: false, error: _installError);
       }
 
@@ -323,7 +340,8 @@ class UpdateService extends ChangeNotifier {
       await tempDir.delete(recursive: true);
       return UpdateInstallResult(success: false, error: _installError);
     } catch (e) {
-      _fail('更新失败：$e');
+      debugPrint('更新失败：$e');
+      _fail('更新失败，请稍后重试');
       await tempDir.delete(recursive: true);
       return UpdateInstallResult(success: false, error: _installError);
     }
@@ -356,16 +374,58 @@ class UpdateService extends ChangeNotifier {
     }
   }
 
-  /// 流式下载安装包到 [destPath]，实时更新 [downloadProgress]。
-  @visibleForTesting
-  Future<void> downloadToFile(UpdateInfo update, String destPath) async {
+  /// 带重试的下载，网络抖动时自动重试最多 3 次，指数退避。
+  Future<void> _downloadWithRetry(
+    UpdateInfo update,
+    String destPath, {
+    int maxAttempts = 3,
+  }) async {
+    // 整体开头重置一次进度，避免每次重试都跳回 0% 给用户视觉错乱。
+    // downloadToFile 内部仍会在首次接收到数据时设置合理值。
     _downloadProgress = 0;
+    notifyListeners();
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        await downloadToFile(update, destPath, resetProgress: false);
+        return;
+      } on UpdateDownloadException catch (e) {
+        if (attempt == maxAttempts) rethrow;
+        final delay = Duration(seconds: 1 << (attempt - 1)); // 1s / 2s / 4s
+        debugPrint('下载失败（第 $attempt / $maxAttempts 次）：$e，'
+            '${delay.inSeconds}s 后重试');
+        // 重试等待期间切为不确定进度，给用户明确的"重试中"信号
+        _downloadProgress = null;
+        notifyListeners();
+        await Future.delayed(delay);
+      }
+    }
+  }
+
+  /// 流式下载安装包到 [destPath]，实时更新 [downloadProgress]。
+  ///
+  /// [resetProgress] 为 false 时由调用方（如 [_downloadWithRetry]）自行负责
+  /// 在开头重置进度，避免每次重试进度跳回 0%。
+  @visibleForTesting
+  Future<void> downloadToFile(
+    UpdateInfo update,
+    String destPath, {
+    bool resetProgress = true,
+  }) async {
+    if (resetProgress) {
+      _downloadProgress = 0;
+      notifyListeners();
+    }
     final req = http.Request('GET', Uri.parse(update.assetUrl));
     final resp = await _client.send(req).timeout(const Duration(seconds: 30));
     if (resp.statusCode != 200) {
       throw UpdateDownloadException('下载失败：HTTP ${resp.statusCode}');
     }
     final total = resp.contentLength ?? update.assetSize;
+    if (total <= 0) {
+      // 无法获取总大小（chunked 编码等），进度设为不确定
+      _downloadProgress = null;
+      notifyListeners();
+    }
     final sink = File(destPath).openWrite();
     var received = 0;
     try {
@@ -376,8 +436,10 @@ class UpdateService extends ChangeNotifier {
         received += chunk.length;
         if (total > 0) {
           _downloadProgress = received / total;
-          notifyListeners();
+        } else {
+          _downloadProgress = null;
         }
+        notifyListeners();
       }
     } catch (_) {
       await sink.close();
@@ -420,7 +482,18 @@ timeout /t 2 /nobreak >nul
 taskkill /IM "%EXE%" /F >nul 2>&1
 if not exist "%EXTRACTED%" mkdir "%EXTRACTED%"
 tar -xf "%ZIP%" -C "%EXTRACTED%"
+if errorlevel 1 (
+    echo [%date% %time%] tar extraction failed >> "%TEMPDIR%\\update_error.log"
+    start "" "%EXEPATH%"
+    rmdir /s /q "%EXTRACTED%" >nul 2>&1
+    del /q "%ZIP%" >nul 2>&1
+    rmdir /s /q "%TEMPDIR%" >nul 2>&1
+    exit /b 1
+)
 robocopy "%EXTRACTED%" "%APPDIR%" /E /IS /IT /NFL /NDL /NJH /NJS /NP >nul
+if errorlevel 8 (
+    echo [%date% %time%] robocopy failed with exit code %errorlevel% >> "%TEMPDIR%\\update_error.log"
+)
 start "" "%EXEPATH%"
 rmdir /s /q "%EXTRACTED%" >nul 2>&1
 del /q "%ZIP%" >nul 2>&1

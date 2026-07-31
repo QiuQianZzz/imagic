@@ -21,9 +21,14 @@ class AppInstallTypeDetector {
   /// Inno Setup 默认卸载程序文件名。
   static const _innoUninstaller = 'unins000.exe';
 
+  /// MSIX 沙盒安装目录的规范片段。
+  /// MSIX 应用只能装在 `Program Files\WindowsApps\` 下，
+  /// 普通用户无写入权限，绿色版不会被解压到这里。
+  static const _msixPathFragment = r'Program Files\WindowsApps\';
+
   /// 检测当前应用的安装形式。
   ///
-  /// - MSIX：可执行文件路径包含 `WindowsApps`（沙盒安装目录）
+  /// - MSIX：可执行文件路径包含 `Program Files\WindowsApps\`（沙盒安装目录）
   /// - 安装版：exe 同目录存在 Inno Setup 卸载程序 `unins000.exe`
   /// - 绿色版：以上都不满足
   static AppInstallType detect() {
@@ -33,7 +38,8 @@ class AppInstallTypeDetector {
 
     // MSIX 安装路径形如：
     // C:\Program Files\WindowsApps\QiuQianZzz.Imagic_0.1.0.0_x64__...\imagic.exe
-    if (exePath.contains('WindowsApps')) {
+    // 用完整路径片段匹配，避免用户把绿色版解压到含 "WindowsApps" 的目录误判
+    if (exePath.contains(_msixPathFragment)) {
       return AppInstallType.msix;
     }
 

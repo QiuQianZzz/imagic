@@ -86,4 +86,43 @@ void main() {
     expect(result.success, isFalse);
     expect(result.error, contains('SHA-256'));
   });
+
+  group('writeInstallerScript', () {
+    test('script contains all required paths and commands', () async {
+      final service = UpdateService(client: MockClient((_) async => http.Response('', 200)));
+      final tempDir = await Directory.systemTemp.createTemp('imagic_script_test_');
+      addTearDown(() => tempDir.delete(recursive: true));
+
+      final assetPath = '${tempDir.path}\\update.zip';
+      final scriptPath = await service.writeInstallerScript(assetPath, tempDir.path);
+      final content = await File(scriptPath).readAsString();
+
+      // 核心变量与命令齐全
+      expect(content, contains('set "ZIP=$assetPath"'));
+      expect(content, contains('set "TEMPDIR=${tempDir.path}"'));
+      expect(content, contains('tar -xf "%ZIP%" -C "%EXTRACTED%"'));
+      expect(content, contains('robocopy "%EXTRACTED%" "%APPDIR%"'));
+      expect(content, contains('start "" "%EXEPATH%"'));
+      // 退出码检查
+      expect(content, contains('if errorlevel 1'));
+      expect(content, contains('if errorlevel 8'));
+      // 错误日志路径：Dart 源码中 \\u 会被解析为单反斜杠写入 bat，bat 中为 %TEMPDIR%\update_error.log
+      expect(content, contains(r'%TEMPDIR%\update_error.log'));
+      // 确认 bat 文件里不是两个连续反斜杠（bat 虽能容忍，但不规范）
+      expect(content, isNot(contains(r'%TEMPDIR%\\update_error.log')));
+    });
+
+    test('script handles paths with spaces', () async {
+      final service = UpdateService(client: MockClient((_) async => http.Response('', 200)));
+      final tempDir = await Directory.systemTemp.createTemp('imagic space test_');
+      addTearDown(() => tempDir.delete(recursive: true));
+
+      final assetPath = '${tempDir.path}\\my update.zip';
+      final scriptPath = await service.writeInstallerScript(assetPath, tempDir.path);
+      final content = await File(scriptPath).readAsString();
+
+      // 含空格的路径应被引号包裹
+      expect(content, contains('set "ZIP=$assetPath"'));
+    });
+  });
 }

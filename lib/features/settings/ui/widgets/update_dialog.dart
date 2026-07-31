@@ -76,7 +76,7 @@ class UpdateDialog extends StatelessWidget {
                 ),
                 child: SingleChildScrollView(
                   child: SelectableText(
-                    update.body,
+                    _plainText(update.body),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
@@ -92,7 +92,7 @@ class UpdateDialog extends StatelessWidget {
           onPressed: _busy(updater)
               ? null
               : () => Navigator.of(context).pop(),
-          child: const Text('稍后'),
+          child: Text(updater.stage == UpdateStage.error ? '关闭' : '稍后'),
         ),
         FilledButton(
           onPressed: _busy(updater)
@@ -104,6 +104,34 @@ class UpdateDialog extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  /// 将 Markdown 正文转为更易读的纯文本：去除标题井号、加粗/斜体标记、
+  /// 行内代码反引号等常见语法符号。不处理代码块与表格（更新日志极少含这些）。
+  static String _plainText(String markdown) {
+    var text = markdown;
+    // 标题行：去掉行首 # 与空格
+    text = text.replaceAllMapped(RegExp(r'^#{1,6}\s+'), (m) => '');
+    // 加粗/斜体：**text** / *text* / __text__ / _text_
+    text = text.replaceAllMapped(
+      RegExp(r'(\*\*|__)(.+?)\1'),
+      (m) => m.group(2)!,
+    );
+    text = text.replaceAllMapped(
+      RegExp(r'(\*|_)(.+?)\1'),
+      (m) => m.group(2)!,
+    );
+    // 行内代码：`text`
+    text = text.replaceAllMapped(
+      RegExp(r'`([^`]+)`'),
+      (m) => m.group(1)!,
+    );
+    // 链接：[text](url) → text
+    text = text.replaceAllMapped(
+      RegExp(r'\[([^\]]+)\]\([^)]+\)'),
+      (m) => m.group(1)!,
+    );
+    return text;
   }
 
   List<Widget> _status(BuildContext context, UpdateService updater) {

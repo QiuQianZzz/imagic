@@ -19,6 +19,7 @@ class UpdateSection extends StatelessWidget {
     final result = await updater.checkForUpdates(
       channel: settings.updateChannel,
       current: Version.parse(AppVersionService.instance.version),
+      force: true,
     );
     if (!context.mounted) return;
     if (result.status == UpdateCheckStatus.updateAvailable &&
@@ -60,6 +61,15 @@ class UpdateSection extends StatelessWidget {
                       settings.setUpdateChannel(selection.first),
                 ),
               ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              settings.updateChannel == UpdateChannel.all
+                  ? '所有版本：包含正式版和预发行版（beta / rc / alpha），预发行版可能不稳定。'
+                  : '正式版：仅包含稳定的官方发行版本，推荐使用。',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 16),
             Text(

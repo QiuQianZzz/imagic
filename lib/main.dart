@@ -26,7 +26,8 @@ void main(List<String> args) async {
   await AppVersionService.instance.init();
 
   // 清理上次 exe/msix 更新可能残留的临时目录
-  await UpdateService.cleanupStaleTempDirs();
+  // 不阻塞启动：后台执行，失败也不影响应用运行
+  unawaited(UpdateService.cleanupStaleTempDirs());
 
   await windowManager.ensureInitialized();
   await windowManager.setTitleBarStyle(TitleBarStyle.hidden);

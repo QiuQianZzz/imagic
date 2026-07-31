@@ -87,33 +87,49 @@ void main() {
     expect(result.status, UpdateCheckStatus.upToDate);
   });
 
-  test('beta channel picks latest prerelease only', () async {
-    final service = _serviceWith(releases);
-    final result = await service.checkForUpdates(
-      channel: UpdateChannel.beta,
-      current: Version.parse('0.1.0'),
-    );
-    expect(result.status, UpdateCheckStatus.updateAvailable);
-    expect(result.update!.tagName, 'v0.2.0-rc.1');
-  });
-
-  test('beta channel ignores releases lower than current', () async {
-    final service = _serviceWith(releases);
-    final result = await service.checkForUpdates(
-      channel: UpdateChannel.beta,
-      current: Version.parse('0.2.0'),
-    );
-    expect(result.status, UpdateCheckStatus.upToDate);
-  });
-
-  test('all channel picks highest across both types', () async {
+  test('all channel picks highest version across stable and prerelease', () async {
     final service = _serviceWith(releases);
     final result = await service.checkForUpdates(
       channel: UpdateChannel.all,
       current: Version.parse('0.1.0'),
     );
     expect(result.status, UpdateCheckStatus.updateAvailable);
+    // 0.2.0 正式版 > 0.2.0-rc.1，所有版本渠道同时接受两者
     expect(result.update!.tagName, 'v0.2.0');
+  });
+
+  test('all channel picks prerelease when it is the highest', () async {
+    final service = _serviceWith([
+      _release('v0.1.0', assets: ['imagic-0.1.0-windows.zip']),
+      _release('v0.2.0-beta.1', assets: ['imagic-0.2.0-beta.1-windows.zip']),
+    ]);
+    final result = await service.checkForUpdates(
+      channel: UpdateChannel.all,
+      current: Version.parse('0.1.0'),
+    );
+    expect(result.status, UpdateCheckStatus.updateAvailable);
+    expect(result.update!.tagName, 'v0.2.0-beta.1');
+  });
+
+  test('all channel ignores releases lower than current', () async {
+    final service = _serviceWith(releases);
+    final result = await service.checkForUpdates(
+      channel: UpdateChannel.all,
+      current: Version.parse('0.2.0'),
+    );
+    expect(result.status, UpdateCheckStatus.upToDate);
+  });
+
+  test('stable channel skips prerelease when higher stable exists', () async {
+    final service = _serviceWith([
+      _release('v0.1.0', assets: ['imagic-0.1.0-windows.zip']),
+      _release('v0.2.0-beta.1', assets: ['imagic-0.2.0-beta.1-windows.zip']),
+    ]);
+    final result = await service.checkForUpdates(
+      channel: UpdateChannel.stable,
+      current: Version.parse('0.1.0'),
+    );
+    expect(result.status, UpdateCheckStatus.upToDate);
   });
 
   test('digest sha256 prefix is stripped', () async {
