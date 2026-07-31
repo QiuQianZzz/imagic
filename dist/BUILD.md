@@ -204,8 +204,8 @@ Remove-Item -Recurse dist\Imagic-<version>-portable
 │   ├── 生成绿色版：Compress-Archive 压缩 Release 目录
 │   ├── 生成 MSIX：flutter pub run msix:create（Secrets 证书签名）
 │   ├── 安装 Inno Setup 7 并编译 EXE 安装包
-│   ├── 生成 release notes：正式版取 CHANGELOG 对应版本块，预发行版取提交标题
-│   └── softprops/action-gh-release 上传三种产物并创建 Release
+│   ├── 生成 release notes：正式版取 CHANGELOG 对应版本块正文（去版本标题行），预发行版取提交标题
+│   └── softprops/action-gh-release 上传三种产物并创建 Release（标题带 [Release]/[Pre-Release] 前缀）
 ```
 
 签名密钥统一通过 GitHub Secrets 管理，本地无需持有任何证书。

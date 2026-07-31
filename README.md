@@ -37,7 +37,7 @@ flutter build windows --release
 - **MSIX 安装包**（代码签名，需配置 Secrets）：`imagic-<version>.msix`
 - **绿色版 zip**：`imagic-<version>-windows.zip`
 
-正式版（无 beta/rc 后缀）的更新日志取自 `CHANGELOG.md` 中对应版本块；预发行版自动截取自上个标签以来的提交标题。打包与签名详见 [dist/BUILD.md](dist/BUILD.md)。
+正式版（无 beta/rc 后缀）的更新日志取自 `CHANGELOG.md` 中对应版本块的正文；预发行版自动截取自上个标签以来的提交标题。Release 标题带 `[Release]` / `[Pre-Release]` 前缀。打包与签名详见 [dist/BUILD.md](dist/BUILD.md)。
 
 ## 项目结构
 
