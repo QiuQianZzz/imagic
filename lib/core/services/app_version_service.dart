@@ -27,10 +27,15 @@ class AppVersionService {
   String get buildNumber => _buildNumber;
 
   /// 预加载版本信息。应在 main() 中调用一次。
+  /// 读取失败时回退到默认值，不阻断应用启动。
   Future<void> init() async {
-    final info = await PackageInfo.fromPlatform();
-    if (info.version.isNotEmpty) _version = info.version;
-    if (info.buildNumber.isNotEmpty) _buildNumber = info.buildNumber;
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (info.version.isNotEmpty) _version = info.version;
+      if (info.buildNumber.isNotEmpty) _buildNumber = info.buildNumber;
+    } catch (_) {
+      // 平台不支持 / 版本资源读取失败时保持默认值，避免应用无法启动
+    }
   }
 
   /// 展示用完整版本字符串，如 `0.1.0 (1)`。
