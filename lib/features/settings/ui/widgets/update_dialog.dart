@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/models/update_info.dart';
@@ -75,9 +76,39 @@ class UpdateDialog extends StatelessWidget {
                   ),
                 ),
                 child: SingleChildScrollView(
-                  child: SelectableText(
-                    _plainText(update.body),
-                    style: Theme.of(context).textTheme.bodySmall,
+                  child: MarkdownBody(
+                    data: _stripVersionHeader(update.body),
+                    selectable: true,
+                    styleSheet: MarkdownStyleSheet.fromTheme(
+                      Theme.of(context),
+                    ).copyWith(
+                      p: Theme.of(context).textTheme.bodySmall,
+                      h1: Theme.of(context).textTheme.titleMedium,
+                      h2: Theme.of(context).textTheme.titleMedium,
+                      h3: Theme.of(context).textTheme.titleSmall,
+                      h4: Theme.of(context).textTheme.titleSmall,
+                      h5: Theme.of(context).textTheme.titleSmall,
+                      h6: Theme.of(context).textTheme.titleSmall,
+                      listBullet: Theme.of(context).textTheme.bodySmall,
+                      codeblockDecoration: BoxDecoration(
+                        color: cs.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      code: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        color: cs.primary,
+                      ),
+                      a: TextStyle(color: cs.primary),
+                    ),
+                    onTapLink: (text, href, title) {
+                      if (href == null) return;
+                      // Windows: 用系统默认浏览器打开链接
+                      if (Platform.isWindows) {
+                        // ignore: avoid_print
+                        Process.start('cmd', ['/c', 'start', '', href]);
+                      }
+                    },
                   ),
                 ),
               ),
@@ -106,39 +137,18 @@ class UpdateDialog extends StatelessWidget {
     );
   }
 
-  /// 将 Markdown 正文转为更易读的纯文本：去除标题井号、加粗/斜体标记、
-  /// 行内代码反引号等常见语法符号。不处理代码块与表格（更新日志极少含这些）。
-  static String _plainText(String markdown) {
-    var text = markdown;
-    // 只删除版本号标题行 + 紧跟的所有空行：
-    // - 弹窗顶部已显示版本号，CHANGELOG 里的 ## [version] 标题属于重复信息
-    // - release.yml 生成的正式版 body 已无标题，此处兜底处理手动创建 / 预发布的情况
-    // - 仅匹配 ## [ 开头的标题，保留其他级别标题（### 新特性 等）的 Markdown 结构
-    // - \n+ 与 release.yml L124 的行为对齐：删除标题后所有连续空行
-    text = text.replaceAllMapped(
+  /// 剥离版本号标题行（仅 ## [version] 形式）+ 紧跟的所有空行。
+  /// 保留其他 Markdown 语法（标题、列表、加粗、链接、代码等），由 MarkdownBody 渲染。
+  ///
+  /// - 弹窗顶部已显示版本号，CHANGELOG 里的 ## [version] 标题属于重复信息
+  /// - release.yml 生成的正式版 body 已无标题，此处兜底处理手动创建 / 预发布的情况
+  /// - 仅匹配 ## [ 开头的标题，保留其他级别标题（### 新特性 等）的 Markdown 结构
+  /// - \n+ 与 release.yml L124 的行为对齐：删除标题后所有连续空行
+  static String _stripVersionHeader(String markdown) {
+    return markdown.replaceAllMapped(
       RegExp(r'^#{1,6}\s*\[[^\n]*\]\s*[^\n]*\n+', multiLine: true),
       (m) => '',
     );
-    // 加粗/斜体：**text** / *text* / __text__ / _text_
-    text = text.replaceAllMapped(
-      RegExp(r'(\*\*|__)(.+?)\1'),
-      (m) => m.group(2)!,
-    );
-    text = text.replaceAllMapped(
-      RegExp(r'(\*|_)(.+?)\1'),
-      (m) => m.group(2)!,
-    );
-    // 行内代码：`text`
-    text = text.replaceAllMapped(
-      RegExp(r'`([^`]+)`'),
-      (m) => m.group(1)!,
-    );
-    // 链接：[text](url) → text
-    text = text.replaceAllMapped(
-      RegExp(r'\[([^\]]+)\]\([^)]+\)'),
-      (m) => m.group(1)!,
-    );
-    return text;
   }
 
   List<Widget> _status(BuildContext context, UpdateService updater) {

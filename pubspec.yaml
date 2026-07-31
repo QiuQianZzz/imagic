@@ -27,6 +27,7 @@ dependencies:
   package_info_plus: ^9.0.1
   http: ^1.6.0
   crypto: ^3.0.7
+  flutter_markdown_plus: ^1.0.12
 
 dev_dependencies:
   flutter_test:
