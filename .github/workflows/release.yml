@@ -68,7 +68,7 @@ jobs:
           MSIX_CERT_B64: ${{ secrets.MSIX_CERT }}
           MSIX_CERT_PASSWORD: ${{ secrets.MSIX_CERT_PASSWORD }}
         run: |
-          $msixArgs = @("--version", "${{ steps.tag.outputs.msix_version }}", "-o", "build/windows/msix", "-n", "imagic-${{ steps.tag.outputs.version }}", "--build-windows", "false")
+          $msixArgs = @("--version", "${{ steps.tag.outputs.msix_version }}", "-o", "build/windows/msix", "-n", "imagic-${{ steps.tag.outputs.version }}", "--build-windows", "false", "--install-certificate", "false")
           if ($env:MSIX_CERT_B64) {
             $certFile = "build/windows/signing.pfx"
             [IO.File]::WriteAllBytes($certFile, [Convert]::FromBase64String($env:MSIX_CERT_B64))
