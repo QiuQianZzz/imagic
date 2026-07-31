@@ -224,6 +224,13 @@ class _ViewerScreenState extends State<ViewerScreen>
 
   Future<void> _openFromPath(String path) async {
     if (!mounted) return;
+    // 若当前停留在设置页等上层路由，先弹回查看页（MaterialApp home 路由，
+    // 名称为 Navigator.defaultRouteName）再打开图片，保证外部文件立即可见。
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).popUntil(
+        (route) => route.settings.name == Navigator.defaultRouteName,
+      );
+    }
     _clearActualSizeMode();
     await context.read<ViewerState>().openFile(path);
   }
