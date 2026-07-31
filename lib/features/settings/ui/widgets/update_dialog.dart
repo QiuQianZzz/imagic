@@ -110,8 +110,15 @@ class UpdateDialog extends StatelessWidget {
   /// 行内代码反引号等常见语法符号。不处理代码块与表格（更新日志极少含这些）。
   static String _plainText(String markdown) {
     var text = markdown;
-    // 标题行：去掉行首 # 与空格
-    text = text.replaceAllMapped(RegExp(r'^#{1,6}\s+'), (m) => '');
+    // 只删除版本号标题行 + 紧跟的所有空行：
+    // - 弹窗顶部已显示版本号，CHANGELOG 里的 ## [version] 标题属于重复信息
+    // - release.yml 生成的正式版 body 已无标题，此处兜底处理手动创建 / 预发布的情况
+    // - 仅匹配 ## [ 开头的标题，保留其他级别标题（### 新特性 等）的 Markdown 结构
+    // - \n+ 与 release.yml L124 的行为对齐：删除标题后所有连续空行
+    text = text.replaceAllMapped(
+      RegExp(r'^#{1,6}\s*\[[^\n]*\]\s*[^\n]*\n+', multiLine: true),
+      (m) => '',
+    );
     // 加粗/斜体：**text** / *text* / __text__ / _text_
     text = text.replaceAllMapped(
       RegExp(r'(\*\*|__)(.+?)\1'),
