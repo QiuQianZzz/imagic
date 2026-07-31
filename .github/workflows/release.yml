@@ -112,6 +112,7 @@ jobs:
             } else {
               $log = git log --pretty=format:"- %s"
             }
+            $log = $log -join "`n"
             $notes = "## 预发行版 $version`n`n这是预发行版本，仅供测试，可能存在不稳定因素。`n`n## 自上个标签以来的提交`n`n$log"
           } else {
             $changelog = Get-Content CHANGELOG.md -Raw
