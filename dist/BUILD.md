@@ -62,7 +62,7 @@ Inno 写入的注册表结构与 [windows_registry.dart](../lib/core/utils/windo
 - 命令：`"<安装目录>\imagic.exe" "%1"`
 - 自启动值名：`Imagic`
 
-因此用户在安装时未勾选，后续也可在 **设置 → 系统集成** 中打开；反之亦然。卸载会清理 Inno 写入的项，应用内开关在下次启动时会重新检测并自愈。
+因此用户在安装时未勾选，后续也可在 **设置 → 常规 → 系统集成** 中打开；反之亦然。卸载会清理 Inno 写入的项，应用内开关在下次启动时会重新检测并自愈。
 
 ---
 
@@ -90,10 +90,10 @@ msix_config:
 
 ```powershell
 # 生成未签名 MSIX（仅本地自测，需开发者模式或 sideload 权限安装）
-dart run msix:create
+flutter pub run msix:create --build-windows false
 ```
 
-产物：`build\windows\x64\runner\Release\imagic.msix`
+产物：`build\windows\msix\imagic-<version>.msix`（默认按 pubspec 的 `msix_version` 生成）
 
 未签名 MSIX 安装限制：
 
@@ -106,22 +106,12 @@ dart run msix:create
 
 ### 2.3 签名打包（生产分发）
 
-签名流程建议在 **GitHub Actions** 中完成，本地无需准备证书：
+签名流程在 **GitHub Actions** 的 `release.yml` 中自动完成，本地无需准备证书：
 
-1. 生成自签名证书或申请正规代码签名证书（EV 证书可直接商店分发，OV 证书需要用户信任根证书）
-2. 将证书导出为 PFX，Base64 编码后存入 GitHub Secrets：`MSIX_CERT_BASE64`、`MSIX_CERT_PASSWORD`
-3. 在 workflow 中：
-
-   ```yaml
-   - name: Decode cert
-     run: |
-       echo "${{ secrets.MSIX_CERT_BASE64 }}" | base64 -d > imagic.pfx
-
-   - name: Build MSIX
-     run: flutter pub run msix:create --install-certificate imagic.pfx --password ${{ secrets.MSIX_CERT_PASSWORD }}
-   ```
-
-4. 上传 `imagic.msix` 到 Release
+1. 生成自签名证书（或申请正规代码签名证书，EV 证书可直接商店分发，OV 证书需要用户信任根证书）
+2. 将证书导出为 PFX，Base64 编码后存入 GitHub Secrets：`MSIX_CERT`、`MSIX_CERT_PASSWORD`
+3. 推送 `v*` 标签触发构建，workflow 会自动解码证书、用 `--install-certificate false` 跳过证书安装提示完成签名（未配置 Secrets 时回退为插件自签的测试证书）
+4. 产物 `imagic-<version>.msix` 随 GitHub Release 上传
 
 ### 2.4 MSIX 文件关联（待办）
 
@@ -172,10 +162,12 @@ Remove-Item -Recurse dist\Imagic-<version>-portable
 
 产物：`dist\Imagic-<version>-portable.zip`
 
+> CI 中的绿色版产物命名略有不同（`imagic-<version>-windows.zip`，见 [release.yml](../.github/workflows/release.yml)），内容相同。
+
 ### 3.2 使用限制
 
 - 解压任意位置即可运行 `imagic.exe`
-- **文件关联**：解压状态下默认不关联。可在 **设置 → 系统集成** 中打开"文件关联"开关，应用内会写入 `HKCU\Software\Classes\...`（与安装版共用同一套注册表结构）
+- **文件关联**：解压状态下默认不关联。可在 **设置 → 常规 → 系统集成** 中打开"文件关联"开关，应用内会写入 `HKCU\Software\Classes\...`（与安装版共用同一套注册表结构）
 - **开机自启动**：同样可在设置中开启，写入 `HKCU\...\Run\Imagic`
 - 注意：**绿色版路径变更后**，需在设置中关闭再开启关联/自启动，以刷新注册表中记录的 exe 路径
 
@@ -198,19 +190,22 @@ Remove-Item -Recurse dist\Imagic-<version>-portable
 
 ## 5. CI/CD 建议（GitHub Actions）
 
-推荐 workflow 结构：
+当前仓库已配置好发布流水线 [release.yml](../.github/workflows/release.yml)，推送 `v*` 标签即自动发布：
 
 ```
 .github/workflows/release.yml
-├── 触发：tag 推送 v*.*.*
-├── job: build
-│   ├── actions/checkout
-│   ├── subosito/flutter-action@v2  (channel: stable)
+├── 触发：tag 推送 v* 或 workflow_dispatch（手动指定版本）
+├── job: release
+│   ├── actions/checkout（fetch-depth: 0，取全部 tag）
+│   ├── 解析版本：版本号取自 tag（去掉 v 前缀），识别 beta/rc 预发行标记
+│   ├── 同步 pubspec 版本号为 tag 版本
+│   ├── subosito/flutter-action@v2（stable 3.44.2，带 SDK 缓存）
 │   ├── flutter build windows --release
-│   ├── 生成 EXE：iscc windows\packaging\inno_setup.iss
-│   ├── 生成 MSIX：dart run msix:create（带签名）
-│   ├── 生成 绿色版：zip Release 目录
-│   └── softprops/action-gh-release 上传所有产物
+│   ├── 生成绿色版：Compress-Archive 压缩 Release 目录
+│   ├── 生成 MSIX：flutter pub run msix:create（Secrets 证书签名）
+│   ├── 安装 Inno Setup 7 并编译 EXE 安装包
+│   ├── 生成 release notes：正式版取 CHANGELOG 对应版本块，预发行版取提交标题
+│   └── softprops/action-gh-release 上传三种产物并创建 Release
 ```
 
 签名密钥统一通过 GitHub Secrets 管理，本地无需持有任何证书。
@@ -221,11 +216,11 @@ Remove-Item -Recurse dist\Imagic-<version>-portable
 
 ### 6.1 EXE 安装时提示"文件被占用"
 
-确保 Imagic 已完全退出（包括托盘图标）后再安装。
+确保 Imagic 已完全退出后再安装（可先在任务管理器中确认没有 `imagic.exe` 进程）。
 
 ### 6.2 文件关联不生效
 
-- 检查 `设置 → 系统集成 → 文件关联` 开关状态
+- 检查 `设置 → 常规 → 系统集成 → 文件关联` 开关状态
 - 在 Windows 设置中查看默认应用是否被其他程序抢占
 - 资源管理器未刷新可重启 explorer.exe 或注销重登
 
